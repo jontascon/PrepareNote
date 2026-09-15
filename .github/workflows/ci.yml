@@ -1,0 +1,70 @@
+name: PrepareNote CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  backend:
+    name: Backend CI
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install backend dependencies
+        run: |
+          if [ -f backend/requirements.txt ]; then
+            python -m pip install --upgrade pip
+            pip install -r backend/requirements.txt
+          else
+            echo "Backend requirements not available yet."
+          fi
+
+      - name: Run Django tests
+        run: |
+          if [ -f backend/manage.py ]; then
+            cd backend
+            python manage.py test
+          else
+            echo "Django backend not available yet. Skipping tests."
+          fi
+
+  frontend:
+    name: Frontend CI
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install frontend dependencies
+        run: |
+          if [ -f frontend/package.json ]; then
+            cd frontend
+            npm install
+          else
+            echo "Frontend package.json not available yet."
+          fi
+
+      - name: Run frontend tests
+        run: |
+          if [ -f frontend/package.json ]; then
+            cd frontend
+            npm test -- --run
+          else
+            echo "React frontend not available yet. Skipping tests."
+          fi
