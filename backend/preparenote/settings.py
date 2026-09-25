@@ -77,11 +77,11 @@ WSGI_APPLICATION = "preparenote.wsgi.application"
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
-        "NAME": os.environ.get("DATABASE_NAME"),
-        "USER": os.environ.get("DATABASE_USER"),
+        "NAME": "postgres",
+        "USER": "postgres.swvpvsrwqxdztdopiyoz",
         "PASSWORD": os.environ.get("DATABASE_PASSWORD"),
-        "HOST": os.environ.get("DATABASE_HOST"),
-        "PORT": os.environ.get("DATABASE_PORT")
+        "HOST": "aws-0-us-east-1.pooler.supabase.com",
+        "PORT": 6543
     }
 }
 
