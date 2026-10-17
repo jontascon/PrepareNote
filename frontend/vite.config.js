@@ -3,6 +3,12 @@ import { defineConfig } from 'vite'
 
 export default defineConfig({
   plugins: [react()],
+  server: {
+    proxy: {
+      '/createUser': 'http://localhost:8000',
+      '/getUser': 'http://localhost:8000',
+    },
+  },
   test: {
     environment: 'jsdom',
     globals: true,
