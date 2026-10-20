@@ -31,7 +31,7 @@ def getUser(request):
 
     # Get the user info
     try:
-        user = User.objects.get(username=request.query_params.get('username'))
+        user = User.objects.get(username=request.query_params.get('username'), password=request.query_params.get('password'));
         response = {
             "success": True,
             "username": user.username,
