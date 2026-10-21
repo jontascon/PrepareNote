@@ -2,5 +2,5 @@ from django.apps import AppConfig
 
 
 class QuickstartConfig(AppConfig):
-    name = "quickstart"
+    name = "preparenote.quickstart"
     

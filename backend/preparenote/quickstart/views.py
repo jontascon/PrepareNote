@@ -1,5 +1,6 @@
 from django.shortcuts import render
 from django.contrib.auth.models import User
+from django.contrib.auth import authenticate
 from rest_framework import status
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
@@ -23,26 +24,26 @@ def createUser(request):
 
     return Response(response, status=response_status)
 
-@api_view(['GET'])
+@api_view(['POST'])
 def getUser(request):
     # Initialize response
     response = {}
     response_status = status.HTTP_200_OK
 
     # Get the user info
-    try:
-        user = User.objects.get(username=request.query_params.get('username'), password=request.query_params.get('password'));
+    user = authenticate(username=request.data.get('username'), password=request.data.get('password'));
+    if user is not None:
         response = {
             "success": True,
             "username": user.username,
             "email": user.email,
             "id": user.id
         }
-    except Exception as e:
+    else:
         response = {
             "success": False,
             "error": str(e)
         }
-        response_status = status.HTTP_404_NOT_FOUND
+        response_status = status.HTTP_401_UNAUTHORIZED
 
     return Response(response, status=response_status)
