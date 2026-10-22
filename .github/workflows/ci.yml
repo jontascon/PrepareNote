@@ -30,6 +30,12 @@ jobs:
           fi
 
       - name: Run Django tests
+
+        # Add Environemnt Variables
+        env:
+          DJANGO_SECRET: ${{ secrets.DJANGO_SECRET }}
+          DATABASE_PASSWORD: ${{ secrets.DATABASE_PASSWORD }}
+
         run: |
           if [ -f backend/manage.py ]; then
             cd backend
