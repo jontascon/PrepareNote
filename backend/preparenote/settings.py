@@ -12,6 +12,9 @@ https://docs.djangoproject.com/en/6.1/ref/settings/
 
 from pathlib import Path
 import os
+import sys
+#from dotenv import load_dotenv
+#load_dotenv()
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -39,7 +42,7 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "rest_framework",
-    "preparenote.quickstart",
+    "preparenote.quickstart.apps.QuickstartConfig",
     "preparenote.exams",
 ]
 
@@ -86,6 +89,16 @@ DATABASES = {
         "PORT": 6543
     }
 }
+
+# Tests run against a throwaway SQLite database so CI does not depend on
+# reaching Supabase or needing permission to create a test database there.
+if "test" in sys.argv:
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": BASE_DIR / "test_db.sqlite3",
+        }
+    }
 
 
 # Password validation

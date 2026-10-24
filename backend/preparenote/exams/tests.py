@@ -27,12 +27,12 @@ class ExamHierarchyTests(TestCase):
         self.assertQuerySetEqual(self.networking.topics.all(), [self.vpc, self.dns])
 
     def test_topic_contains_multiple_notes(self):
-        first = Note.objects.create(user_name=self.user, topic=self.vpc, content="Peering is not transitive.")
-        second = Note.objects.create(user_name=self.user, topic=self.vpc, content="CIDR blocks cannot overlap.")
+        first = Note.objects.create(user=self.user, topic=self.vpc, content="Peering is not transitive.")
+        second = Note.objects.create(user=self.user, topic=self.vpc, content="CIDR blocks cannot overlap.")
         self.assertCountEqual(self.vpc.notes.all(), [first, second])
 
     def test_note_knows_its_topic_section_and_exam(self):
-        note = Note.objects.create(user_name=self.user, topic=self.dns, content="Alias records are free.")
+        note = Note.objects.create(user=self.user, topic=self.dns, content="Alias records are free.")
         self.assertEqual(note.topic, self.dns)
         self.assertEqual(note.section, self.networking)
         self.assertEqual(note.exam, self.exam)
@@ -49,7 +49,7 @@ class ExamHierarchyTests(TestCase):
         Topic.objects.create(section=self.storage, name="VPC Peering")  # allowed in a different section
 
     def test_topic_with_notes_cannot_be_deleted(self):
-        Note.objects.create(user_name=self.user, topic=self.vpc, content="Keep me.")
+        Note.objects.create(user=self.user, topic=self.vpc, content="Keep me.")
         with self.assertRaises(ProtectedError):
             self.vpc.delete()
 
