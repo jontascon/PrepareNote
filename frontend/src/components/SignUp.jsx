@@ -39,10 +39,7 @@ function SignUp() {
       const data = await response.json();
 
       if (data.success) {
-        const userResponse = await fetch('/getUser/?username=' + encodeURIComponent(username));
-        const user = await userResponse.json();
-
-        setMessage('Account created for ' + user.username + ' (' + user.email + ').');
+        setMessage('Account created for ' + username + ' (' + email + ').');
         setUsername('');
         setEmail('');
         setPassword('');
