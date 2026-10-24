@@ -42,7 +42,7 @@ def getUser(request):
     else:
         response = {
             "success": False,
-            "error": str(e)
+            "error": "Invalid username or password"
         }
         response_status = status.HTTP_401_UNAUTHORIZED
 
