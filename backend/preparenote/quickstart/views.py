@@ -1,6 +1,7 @@
 from django.shortcuts import render
 from django.contrib.auth.models import User
 from django.contrib.auth import authenticate
+from django.db import transaction, IntegrityError
 from rest_framework import status
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
@@ -9,20 +10,34 @@ import json
 # Create your views here.
 @api_view(['POST'])
 def createUser(request):
-    # Initiliaze response
-    response = {}
-    response_status = status.HTTP_200_OK
+    username = request.data.get('username')
+    email = request.data.get('email')
+    password = request.data.get('password')
 
-    # Try to create the user
+    # Require all registration fields
+    if not username or not email or not password:
+        return Response(
+            {"success": False, "error": "Username, email, and password are required"},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    # Reject duplicate usernames before saving
+    if User.objects.filter(username=username).exists():
+        return Response(
+            {"success": False, "error": "Username already exists"},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
     try:
-        user = User.objects.create_user(request.data.get('username'), email=request.data.get('email'), password=request.data.get('password'))
-        response = {"success": True}
-        response_status = status.HTTP_201_CREATED
-    except Exception as e:
-        response = {"success": False, "error": str(e)}
-        response_status = status.HTTP_400_BAD_REQUEST
+        with transaction.atomic():
+            User.objects.create_user(username, email=email, password=password)
+    except IntegrityError:
+        return Response(
+            {"success": False, "error": "Unable to create user"},
+            status=status.HTTP_400_BAD_REQUEST
+        )
 
-    return Response(response, status=response_status)
+    return Response({"success": True}, status=status.HTTP_201_CREATED)
 
 @api_view(['POST'])
 def getUser(request):
