@@ -22,5 +22,9 @@ from preparenote.quickstart import views
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("createUser/", views.createUser, name="createUser"),
-    path("getUser/", views.getUser, name="getUser")
+    path("getUser/", views.getUser, name="getUser"),
+    path("logout/", views.logoutUser, name="logout"),
+
+    path("notes/", views.notes, name="notes"),
+    path("notes/<int:note_id>/", views.noteDetail, name="noteDetail")
 ]
