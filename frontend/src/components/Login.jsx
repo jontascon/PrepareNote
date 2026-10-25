@@ -37,6 +37,7 @@ function Login(props) {
           id: data.id,
           username: data.username,
           email: data.email,
+          isModerator: data.is_moderator === true,
         };
         props.onLogin(user);
       } else {
