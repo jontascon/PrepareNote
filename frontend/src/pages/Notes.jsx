@@ -20,6 +20,7 @@ function Notes() {
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [studyStatus, setStudyStatus] = useState('learning');
+  const [isPublic, setIsPublic] = useState(false);
   const [search, setSearch] = useState('');
   const [editingId, setEditingId] = useState(null);
 
@@ -33,6 +34,10 @@ function Notes() {
 
   function handleStudyStatusChange(event) {
     setStudyStatus(event.target.value);
+  }
+
+  function handlePublicChange(event) {
+    setIsPublic(event.target.checked);
   }
 
   function handleSearchChange(event) {
@@ -53,13 +58,20 @@ function Notes() {
         title: title,
         content: content,
         studyStatus: studyStatus,
+        isPublic: isPublic,
       };
       setNotes(notes.concat(newNote));
     } else {
       const updatedNotes = [];
       for (let i = 0; i < notes.length; i++) {
         if (notes[i].id === editingId) {
-          updatedNotes.push({ id: notes[i].id, title: title, content: content, studyStatus: studyStatus });
+          updatedNotes.push({
+            id: notes[i].id,
+            title: title,
+            content: content,
+            studyStatus: studyStatus,
+            isPublic: isPublic,
+          });
         } else {
           updatedNotes.push(notes[i]);
         }
@@ -71,12 +83,14 @@ function Notes() {
     setTitle('');
     setContent('');
     setStudyStatus('learning');
+    setIsPublic(false);
   }
 
   function startEditing(note) {
     setTitle(note.title);
     setContent(note.content);
     setStudyStatus(note.studyStatus);
+    setIsPublic(note.isPublic);
     setEditingId(note.id);
   }
 
@@ -84,6 +98,7 @@ function Notes() {
     setTitle('');
     setContent('');
     setStudyStatus('learning');
+    setIsPublic(false);
     setEditingId(null);
   }
 
@@ -188,6 +203,20 @@ function Notes() {
               </select>
             </div>
 
+            <div className="form-check mb-3">
+              <input
+                type="checkbox"
+                className="form-check-input"
+                id="is-public"
+                checked={isPublic}
+                onChange={handlePublicChange}
+              />
+              <label htmlFor="is-public" className="form-check-label">
+                Make this note public
+              </label>
+              <div className="form-text">Public notes can be viewed by other users. Private notes are only visible to you.</div>
+            </div>
+
             <button type="submit" className="btn btn-primary">{saveButtonText}</button>
             {cancelButton}
           </form>
@@ -211,9 +240,14 @@ function Notes() {
             <div className="card mb-3" key={note.id}>
               <div className="card-body">
                 <h5 className="card-title">{note.title}</h5>
-                <span className={'badge mb-2 ' + findStudyStatus(note.studyStatus).badge}>
+                <span className={'badge mb-2 me-2 ' + findStudyStatus(note.studyStatus).badge}>
                   {findStudyStatus(note.studyStatus).label}
                 </span>
+                {note.isPublic ? (
+                  <span className="badge mb-2 bg-primary">Public</span>
+                ) : (
+                  <span className="badge mb-2 bg-dark">Private</span>
+                )}
                 <p className="card-text note-text">{note.content}</p>
                 <button
                   className="btn btn-sm btn-outline-primary me-2"

@@ -89,3 +89,34 @@ test('shows how many notes are in each study status', () => {
 
   expect(screen.getByText('Learning: 1 | Reviewing: 0 | Confident: 1')).toBeTruthy();
 });
+
+test('new notes are private by default', () => {
+  render(<Notes />);
+  writeNote('Subnetting', 'A /24 network has 256 addresses');
+
+  expect(screen.getByText('Private', { selector: '.badge' })).toBeTruthy();
+  expect(screen.queryByText('Public', { selector: '.badge' })).toBeNull();
+});
+
+test('a note can be made public', () => {
+  render(<Notes />);
+  fireEvent.click(screen.getByLabelText('Make this note public'));
+  writeNote('Subnetting', 'A /24 network has 256 addresses');
+
+  expect(screen.getByText('Public', { selector: '.badge' })).toBeTruthy();
+  expect(screen.getByLabelText('Make this note public').checked).toBe(false);
+});
+
+test('editing a public note can make it private again', () => {
+  render(<Notes />);
+  fireEvent.click(screen.getByLabelText('Make this note public'));
+  writeNote('Subnetting', 'A /24 network has 256 addresses');
+
+  fireEvent.click(screen.getByText('Edit'));
+  expect(screen.getByLabelText('Make this note public').checked).toBe(true);
+  fireEvent.click(screen.getByLabelText('Make this note public'));
+  writeNote('Subnetting', 'A /24 network has 256 addresses');
+
+  expect(screen.getByText('Private', { selector: '.badge' })).toBeTruthy();
+  expect(screen.queryByText('Public', { selector: '.badge' })).toBeNull();
+});
