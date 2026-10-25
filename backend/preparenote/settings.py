@@ -25,6 +25,8 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = os.environ.get("DJANGO_SECRET")
+if "test" in sys.argv and not SECRET_KEY:
+    SECRET_KEY = "preparenote-test-only-key"
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
@@ -90,14 +92,12 @@ DATABASES = {
     }
 }
 
-# Tests run against a throwaway SQLite database so CI does not depend on
-# reaching Supabase or needing permission to create a test database there.
+
+# Use SQLite for automated tests instead of Supabase.
 if "test" in sys.argv:
-    DATABASES = {
-        "default": {
-            "ENGINE": "django.db.backends.sqlite3",
-            "NAME": BASE_DIR / "test_db.sqlite3",
-        }
+    DATABASES["default"] = {
+        "ENGINE": "django.db.backends.sqlite3",
+        "NAME": BASE_DIR / "test_db.sqlite3",
     }
 
 

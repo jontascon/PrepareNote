@@ -37,6 +37,12 @@ class ExamHierarchyTests(TestCase):
         self.assertEqual(note.section, self.networking)
         self.assertEqual(note.exam, self.exam)
 
+    def test_note_can_be_saved_before_a_topic_is_picked(self):
+        note = Note.objects.create(user=self.user, content="No topic yet.")
+        self.assertIsNone(note.topic)
+        self.assertIsNone(note.section)
+        self.assertIsNone(note.exam)
+
     def test_section_names_are_unique_within_an_exam(self):
         with self.assertRaises(IntegrityError), transaction.atomic():
             Section.objects.create(exam=self.exam, name="Networking")
