@@ -22,27 +22,15 @@ jobs:
 
       - name: Install backend dependencies
         run: |
-          if [ -f backend/requirements.txt ]; then
-            python -m pip install --upgrade pip
-            pip install -r backend/requirements.txt
-          else
-            echo "Backend requirements not available yet."
-          fi
+          python -m pip install --upgrade pip
+          pip install -r backend/requirements.txt
 
       - name: Run Django tests
-
-        # Add Environemnt Variables
         env:
-          DJANGO_SECRET: ${{ secrets.DJANGO_SECRET }}
-          DATABASE_PASSWORD: ${{ secrets.DATABASE_PASSWORD }}
-
+          DJANGO_SECRET: preparenote-ci-test-only-key
         run: |
-          if [ -f backend/manage.py ]; then
-            cd backend
-            python manage.py test
-          else
-            echo "Django backend not available yet. Skipping tests."
-          fi
+          cd backend
+          python manage.py test
 
   frontend:
     name: Frontend CI
@@ -59,18 +47,10 @@ jobs:
 
       - name: Install frontend dependencies
         run: |
-          if [ -f frontend/package.json ]; then
-            cd frontend
-            npm install
-          else
-            echo "Frontend package.json not available yet."
-          fi
+          cd frontend
+          npm ci
 
       - name: Run frontend tests
         run: |
-          if [ -f frontend/package.json ]; then
-            cd frontend
-            npm test -- --run
-          else
-            echo "React frontend not available yet. Skipping tests."
-          fi
+          cd frontend
+          npm test -- --run
