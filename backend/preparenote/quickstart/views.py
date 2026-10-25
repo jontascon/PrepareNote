@@ -46,7 +46,8 @@ def getUser(request):
             "username": user.username,
             "email": user.email,
             "id": user.id,
-            "token": Token.objects.get_or_create(user=user)
+            "token": Token.objects.get_or_create(user=user),
+            "is_moderator": user.is_staff
         }
     else:
         response = {
