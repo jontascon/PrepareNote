@@ -21,8 +21,23 @@ function SignUp() {
   async function handleSubmit(event) {
     event.preventDefault();
 
-    if (username === '' || email === '' || password === '') {
-      setMessage('Please fill in all the fields.');
+    if (username === '') {
+      setMessage('Please enter a username.');
+      return;
+    }
+
+    if (email === '') {
+      setMessage('Please enter an email.');
+      return;
+    }
+
+    if (password === '') {
+      setMessage('Please enter a password.');
+      return;
+    }
+
+    if (username.length > 150) {
+      setMessage('Username must be 150 characters or fewer.');
       return;
     }
 
@@ -48,7 +63,7 @@ function SignUp() {
       }
     } catch (error) {
       console.log(error);
-      setMessage('Could not reach the server. Is the Django backend running?');
+      setMessage('Could not connect to the server. Please try again later.');
     }
   }
 
