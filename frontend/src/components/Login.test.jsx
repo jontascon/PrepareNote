@@ -35,6 +35,15 @@ test('shows an error when the username or password is wrong', async () => {
   expect(onLogin.mock.calls.length).toBe(0);
 });
 
+test('TCID-38: shows an error when the server cannot be reached', async () => {
+  globalThis.fetch = vi.fn().mockRejectedValue(new Error('Failed to fetch'));
+
+  render(<Login onLogin={vi.fn()} />);
+  fillInFormAndSubmit();
+
+  expect(await screen.findByText('Could not connect to the server. Please try again later.')).toBeTruthy();
+});
+
 test('asks for the username and password before sending anything', () => {
   globalThis.fetch = vi.fn();
 
