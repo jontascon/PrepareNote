@@ -51,3 +51,41 @@ test('deletes a note', () => {
   expect(screen.queryByText('Subnetting')).toBeNull();
   expect(screen.getByText('No notes yet. Write your first one!')).toBeTruthy();
 });
+
+test('new notes start as Learning', () => {
+  render(<Notes />);
+  writeNote('Subnetting', 'A /24 network has 256 addresses');
+
+  expect(screen.getByText('Learning', { selector: '.badge' })).toBeTruthy();
+});
+
+test('saves the study status picked for a note', () => {
+  render(<Notes />);
+  fireEvent.change(screen.getByLabelText('Study Status'), { target: { value: 'reviewing' } });
+  writeNote('Subnetting', 'A /24 network has 256 addresses');
+
+  expect(screen.getByText('Reviewing', { selector: '.badge' })).toBeTruthy();
+  expect(screen.getByLabelText('Study Status').value).toBe('learning');
+});
+
+test('editing a note can change its study status', () => {
+  render(<Notes />);
+  writeNote('Subnetting', 'A /24 network has 256 addresses');
+
+  fireEvent.click(screen.getByText('Edit'));
+  expect(screen.getByLabelText('Study Status').value).toBe('learning');
+  fireEvent.change(screen.getByLabelText('Study Status'), { target: { value: 'confident' } });
+  writeNote('Subnetting', 'A /24 network has 256 addresses');
+
+  expect(screen.getByText('Confident', { selector: '.badge' })).toBeTruthy();
+  expect(screen.queryByText('Learning', { selector: '.badge' })).toBeNull();
+});
+
+test('shows how many notes are in each study status', () => {
+  render(<Notes />);
+  writeNote('Subnetting', 'A /24 network has 256 addresses');
+  fireEvent.change(screen.getByLabelText('Study Status'), { target: { value: 'confident' } });
+  writeNote('VPC Peering', 'Peering is not transitive');
+
+  expect(screen.getByText('Learning: 1 | Reviewing: 0 | Confident: 1')).toBeTruthy();
+});

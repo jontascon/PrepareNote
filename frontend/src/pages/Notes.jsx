@@ -1,9 +1,25 @@
 import { useState } from 'react';
 
+const studyStatuses = [
+  { value: 'learning', label: 'Learning', badge: 'bg-secondary' },
+  { value: 'reviewing', label: 'Reviewing', badge: 'bg-warning text-dark' },
+  { value: 'confident', label: 'Confident', badge: 'bg-success' },
+];
+
+function findStudyStatus(value) {
+  for (let i = 0; i < studyStatuses.length; i++) {
+    if (studyStatuses[i].value === value) {
+      return studyStatuses[i];
+    }
+  }
+  return studyStatuses[0];
+}
+
 function Notes() {
   const [notes, setNotes] = useState([]);
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
+  const [studyStatus, setStudyStatus] = useState('learning');
   const [search, setSearch] = useState('');
   const [editingId, setEditingId] = useState(null);
 
@@ -13,6 +29,10 @@ function Notes() {
 
   function handleContentChange(event) {
     setContent(event.target.value);
+  }
+
+  function handleStudyStatusChange(event) {
+    setStudyStatus(event.target.value);
   }
 
   function handleSearchChange(event) {
@@ -32,13 +52,14 @@ function Notes() {
         id: Date.now(),
         title: title,
         content: content,
+        studyStatus: studyStatus,
       };
       setNotes(notes.concat(newNote));
     } else {
       const updatedNotes = [];
       for (let i = 0; i < notes.length; i++) {
         if (notes[i].id === editingId) {
-          updatedNotes.push({ id: notes[i].id, title: title, content: content });
+          updatedNotes.push({ id: notes[i].id, title: title, content: content, studyStatus: studyStatus });
         } else {
           updatedNotes.push(notes[i]);
         }
@@ -49,17 +70,20 @@ function Notes() {
 
     setTitle('');
     setContent('');
+    setStudyStatus('learning');
   }
 
   function startEditing(note) {
     setTitle(note.title);
     setContent(note.content);
+    setStudyStatus(note.studyStatus);
     setEditingId(note.id);
   }
 
   function cancelEditing() {
     setTitle('');
     setContent('');
+    setStudyStatus('learning');
     setEditingId(null);
   }
 
@@ -83,6 +107,22 @@ function Notes() {
     if (noteTitle.includes(search.toLowerCase())) {
       shownNotes.push(notes[i]);
     }
+  }
+
+  const statusCounts = { learning: 0, reviewing: 0, confident: 0 };
+  for (let i = 0; i < notes.length; i++) {
+    statusCounts[notes[i].studyStatus] = statusCounts[notes[i].studyStatus] + 1;
+  }
+
+  let progress = null;
+  if (notes.length > 0) {
+    progress = (
+      <p className="text-muted">
+        {'Learning: ' + statusCounts.learning +
+          ' | Reviewing: ' + statusCounts.reviewing +
+          ' | Confident: ' + statusCounts.confident}
+      </p>
+    );
   }
 
   let message = '';
@@ -134,6 +174,20 @@ function Notes() {
               ></textarea>
             </div>
 
+            <div className="mb-3">
+              <label htmlFor="study-status" className="form-label">Study Status</label>
+              <select
+                className="form-select"
+                id="study-status"
+                value={studyStatus}
+                onChange={handleStudyStatusChange}
+              >
+                {studyStatuses.map((option) => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
+              </select>
+            </div>
+
             <button type="submit" className="btn btn-primary">{saveButtonText}</button>
             {cancelButton}
           </form>
@@ -150,12 +204,16 @@ function Notes() {
             onChange={handleSearchChange}
           />
 
+          {progress}
           <p>{message}</p>
 
           {shownNotes.map((note) => (
             <div className="card mb-3" key={note.id}>
               <div className="card-body">
                 <h5 className="card-title">{note.title}</h5>
+                <span className={'badge mb-2 ' + findStudyStatus(note.studyStatus).badge}>
+                  {findStudyStatus(note.studyStatus).label}
+                </span>
                 <p className="card-text note-text">{note.content}</p>
                 <button
                   className="btn btn-sm btn-outline-primary me-2"

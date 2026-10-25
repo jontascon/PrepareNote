@@ -81,13 +81,16 @@ def noteToDict(note):
         "note_id": note.note_id,
         "title": note.title,
         "content": note.content,
+        "study_status": note.study_status,
     }
 
-def checkNoteData(title, content):
+def checkNoteData(title, content, study_status):
     if title == '' or content == '':
         return "Title and content are required."
     if len(title) > 200:
         return "Title must be 200 characters or fewer."
+    if study_status not in Note.StudyStatus.values:
+        return "Study status must be learning, reviewing or confident."
     return None
 
 @api_view(['GET', 'POST'])
@@ -101,11 +104,12 @@ def notes(request):
 
     title = request.data.get('title') or ''
     content = request.data.get('content') or ''
-    error = checkNoteData(title, content)
+    study_status = request.data.get('study_status') or Note.StudyStatus.LEARNING
+    error = checkNoteData(title, content, study_status)
     if error is not None:
         return Response({"success": False, "error": error}, status=status.HTTP_400_BAD_REQUEST)
 
-    note = Note.objects.create(user=request.user, title=title, content=content)
+    note = Note.objects.create(user=request.user, title=title, content=content, study_status=study_status)
     return Response({"success": True, "note": noteToDict(note)}, status=status.HTTP_201_CREATED)
 
 @api_view(['GET', 'PUT', 'DELETE'])
@@ -120,12 +124,14 @@ def noteDetail(request, note_id):
     if request.method == 'PUT':
         title = request.data.get('title') or ''
         content = request.data.get('content') or ''
-        error = checkNoteData(title, content)
+        study_status = request.data.get('study_status') or note.study_status
+        error = checkNoteData(title, content, study_status)
         if error is not None:
             return Response({"success": False, "error": error}, status=status.HTTP_400_BAD_REQUEST)
 
         note.title = title
         note.content = content
+        note.study_status = study_status
         note.save()
         return Response({"success": True, "note": noteToDict(note)})
 
