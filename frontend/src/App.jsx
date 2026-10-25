@@ -5,14 +5,24 @@ import Login from './components/Login.jsx';
 import Notes from './pages/Notes.jsx';
 import './App.css';
 
+function loadSavedUser() {
+  const savedUser = localStorage.getItem('user');
+  if (savedUser === null) {
+    return null;
+  }
+  return JSON.parse(savedUser);
+}
+
 function App() {
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState(loadSavedUser());
 
   function handleLogin(loggedInUser) {
+    localStorage.setItem('user', JSON.stringify(loggedInUser));
     setUser(loggedInUser);
   }
 
   function handleLogout() {
+    localStorage.removeItem('user');
     setUser(null);
   }
 
