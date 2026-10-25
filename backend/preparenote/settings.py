@@ -12,6 +12,7 @@ https://docs.djangoproject.com/en/6.1/ref/settings/
 
 from pathlib import Path
 import os
+import sys
 #from dotenv import load_dotenv
 #load_dotenv()
 
@@ -24,6 +25,8 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = os.environ.get("DJANGO_SECRET")
+if "test" in sys.argv and not SECRET_KEY:
+    SECRET_KEY = "preparenote-test-only-key"
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
@@ -87,6 +90,14 @@ DATABASES = {
         "PORT": 6543
     }
 }
+
+
+# Use SQLite for automated tests instead of Supabase.
+if "test" in sys.argv:
+    DATABASES["default"] = {
+        "ENGINE": "django.db.backends.sqlite3",
+        "NAME": BASE_DIR / "test_db.sqlite3",
+    }
 
 
 # Password validation
