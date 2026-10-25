@@ -1,10 +1,18 @@
-from django.shortcuts import render
+from django.shortcuts import render, get_object_or_404
+from django.forms.models import model_to_dict
+from django.views.generic import ListView, DetailView, CreateView, UpdateView, DeleteView
+from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth.models import User
 from django.contrib.auth import authenticate
+from django.core import serializers
 from rest_framework import status
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
+from rest_framework.authtoken.models import Token
 import json
+from django.http import JsonResponse
+from preparenote.quickstart.models import Note
+
 
 # Create your views here.
 @api_view(['POST'])
@@ -37,7 +45,8 @@ def getUser(request):
             "success": True,
             "username": user.username,
             "email": user.email,
-            "id": user.id
+            "id": user.id,
+            "token": Token.objects.get_or_create(user=user)
         }
     else:
         response = {
@@ -47,3 +56,31 @@ def getUser(request):
         response_status = status.HTTP_401_UNAUTHORIZED
 
     return Response(response, status=response_status)
+
+# Note CRUD functionality
+class ListNotes(ListView):
+    model = Note
+
+    def get(self, request):
+        queryset = self.get_queryset()
+
+        data = serializers.serialize('json', queryset)
+        return JsonResponse(json.loads(data), safe=False)
+
+class DetailNote(DetailView):
+    model = Note
+
+    def get(self, request):
+            queryset = self.get_queryset()
+    
+            data = serializers.serialize('json', queryset)
+            return JsonResponse(json.loads(data), safe=False)
+
+class CreateNote(CreateView):
+    model = Note
+
+class UpdateNote(UpdateView):
+    model = Note
+
+class DeleteNote(DeleteView):
+    model = Note
