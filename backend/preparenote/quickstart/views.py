@@ -53,13 +53,12 @@ def getUser(request):
     # Get the user info
     user = authenticate(username=request.data.get('username'), password=request.data.get('password'));
     if user is not None:
-        token = Token.objects.get_or_create(user=user)[0]
         response = {
             "success": True,
             "username": user.username,
             "email": user.email,
             "id": user.id,
-            "token": token.key,
+            "token": Token.objects.get_or_create(user=user)[0].key,
             "is_moderator": user.is_staff
         }
     else:
