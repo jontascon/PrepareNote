@@ -5,6 +5,7 @@ function Notes() {
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [search, setSearch] = useState('');
+  const [editingId, setEditingId] = useState(null);
 
   function handleTitleChange(event) {
     setTitle(event.target.value);
@@ -26,15 +27,40 @@ function Notes() {
       return;
     }
 
-    const newNote = {
-      id: Date.now(),
-      title: title,
-      content: content,
-    };
+    if (editingId === null) {
+      const newNote = {
+        id: Date.now(),
+        title: title,
+        content: content,
+      };
+      setNotes(notes.concat(newNote));
+    } else {
+      const updatedNotes = [];
+      for (let i = 0; i < notes.length; i++) {
+        if (notes[i].id === editingId) {
+          updatedNotes.push({ id: notes[i].id, title: title, content: content });
+        } else {
+          updatedNotes.push(notes[i]);
+        }
+      }
+      setNotes(updatedNotes);
+      setEditingId(null);
+    }
 
-    setNotes(notes.concat(newNote));
     setTitle('');
     setContent('');
+  }
+
+  function startEditing(note) {
+    setTitle(note.title);
+    setContent(note.content);
+    setEditingId(note.id);
+  }
+
+  function cancelEditing() {
+    setTitle('');
+    setContent('');
+    setEditingId(null);
   }
 
   function deleteNote(id) {
@@ -45,6 +71,10 @@ function Notes() {
       }
     }
     setNotes(newNotes);
+
+    if (id === editingId) {
+      cancelEditing();
+    }
   }
 
   const shownNotes = [];
@@ -62,11 +92,24 @@ function Notes() {
     message = 'No notes match your search.';
   }
 
+  let formHeading = 'New Note';
+  let saveButtonText = 'Save Note';
+  let cancelButton = null;
+  if (editingId !== null) {
+    formHeading = 'Edit Note';
+    saveButtonText = 'Update Note';
+    cancelButton = (
+      <button type="button" className="btn btn-secondary ms-2" onClick={cancelEditing}>
+        Cancel
+      </button>
+    );
+  }
+
   return (
     <div className="container mt-4">
       <div className="row">
         <div className="col-md-5 mb-4">
-          <h2 className="mb-3">New Note</h2>
+          <h2 className="mb-3">{formHeading}</h2>
 
           <form onSubmit={handleSubmit}>
             <div className="mb-3">
@@ -91,7 +134,8 @@ function Notes() {
               ></textarea>
             </div>
 
-            <button type="submit" className="btn btn-primary">Save Note</button>
+            <button type="submit" className="btn btn-primary">{saveButtonText}</button>
+            {cancelButton}
           </form>
         </div>
 
@@ -113,6 +157,12 @@ function Notes() {
               <div className="card-body">
                 <h5 className="card-title">{note.title}</h5>
                 <p className="card-text note-text">{note.content}</p>
+                <button
+                  className="btn btn-sm btn-outline-primary me-2"
+                  onClick={() => startEditing(note)}
+                >
+                  Edit
+                </button>
                 <button
                   className="btn btn-sm btn-outline-danger"
                   onClick={() => deleteNote(note.id)}
