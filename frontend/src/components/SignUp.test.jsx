@@ -16,7 +16,7 @@ test('shows a success message when the account is created', async () => {
   render(<SignUp />);
   fillInFormAndSubmit();
 
-  expect(await screen.findByText('Account created for ritam (ritam@example.com).')).toBeTruthy();
+  expect(await screen.findByText('Account created for ritam (ritam@example.com). You can log in now.')).toBeTruthy();
   expect(fetch.mock.calls.length).toBe(1);
   expect(fetch.mock.calls[0][0]).toBe('/createUser/');
   expect(fetch.mock.calls[0][1].method).toBe('POST');

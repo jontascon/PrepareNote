@@ -39,7 +39,7 @@ function SignUp() {
       const data = await response.json();
 
       if (data.success) {
-        setMessage('Account created for ' + username + ' (' + email + ').');
+        setMessage('Account created for ' + username + ' (' + email + '). You can log in now.');
         setUsername('');
         setEmail('');
         setPassword('');
@@ -53,52 +53,48 @@ function SignUp() {
   }
 
   return (
-    <div className="container mt-4">
-      <div className="card">
-        <div className="card-body">
-          <h2 className="mb-3">Create Account</h2>
+    <div className="card">
+      <div className="card-body">
+        <h2 className="mb-3">Create Account</h2>
 
-          <form onSubmit={handleSubmit}>
-            <div className="row">
-              <div className="col-md-4 mb-3">
-                <label htmlFor="username" className="form-label">Username</label>
-                <input
-                  type="text"
-                  className="form-control"
-                  id="username"
-                  value={username}
-                  onChange={handleUsernameChange}
-                />
-              </div>
+        <form onSubmit={handleSubmit}>
+          <div className="mb-3">
+            <label htmlFor="username" className="form-label">Username</label>
+            <input
+              type="text"
+              className="form-control"
+              id="username"
+              value={username}
+              onChange={handleUsernameChange}
+            />
+          </div>
 
-              <div className="col-md-4 mb-3">
-                <label htmlFor="email" className="form-label">Email</label>
-                <input
-                  type="email"
-                  className="form-control"
-                  id="email"
-                  value={email}
-                  onChange={handleEmailChange}
-                />
-              </div>
+          <div className="mb-3">
+            <label htmlFor="email" className="form-label">Email</label>
+            <input
+              type="email"
+              className="form-control"
+              id="email"
+              value={email}
+              onChange={handleEmailChange}
+            />
+          </div>
 
-              <div className="col-md-4 mb-3">
-                <label htmlFor="password" className="form-label">Password</label>
-                <input
-                  type="password"
-                  className="form-control"
-                  id="password"
-                  value={password}
-                  onChange={handlePasswordChange}
-                />
-              </div>
-            </div>
+          <div className="mb-3">
+            <label htmlFor="password" className="form-label">Password</label>
+            <input
+              type="password"
+              className="form-control"
+              id="password"
+              value={password}
+              onChange={handlePasswordChange}
+            />
+          </div>
 
-            <button type="submit" className="btn btn-primary">Sign Up</button>
-          </form>
+          <button type="submit" className="btn btn-primary">Sign Up</button>
+        </form>
 
-          <p className="mt-3 mb-0">{message}</p>
-        </div>
+        <p className="mt-3 mb-0">{message}</p>
       </div>
     </div>
   );

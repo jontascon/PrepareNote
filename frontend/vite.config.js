@@ -6,6 +6,7 @@ export default defineConfig({
   server: {
     proxy: {
       '/createUser': 'http://localhost:8000',
+      '/getUser': 'http://localhost:8000',
     },
   },
   test: {
