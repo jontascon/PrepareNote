@@ -44,7 +44,7 @@ function Login(props) {
       }
     } catch (error) {
       console.log(error);
-      setMessage('Could not reach the server. Is the Django backend running?');
+      setMessage('Could not connect to the server. Please try again later.');
     }
   }
 
