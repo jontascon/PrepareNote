@@ -6,7 +6,8 @@ from django.contrib.auth.models import User
 from django.contrib.auth import authenticate
 from django.core import serializers
 from rest_framework import status
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.authtoken.models import Token
 import json
@@ -16,6 +17,7 @@ from preparenote.quickstart.models import Note
 
 # Create your views here.
 @api_view(['POST'])
+@permission_classes([AllowAny])
 def createUser(request):
     # Initiliaze response
     response = {}
@@ -33,6 +35,7 @@ def createUser(request):
     return Response(response, status=response_status)
 
 @api_view(['POST'])
+@permission_classes([AllowAny])
 def getUser(request):
     # Initialize response
     response = {}
@@ -46,7 +49,7 @@ def getUser(request):
             "username": user.username,
             "email": user.email,
             "id": user.id,
-            "token": Token.objects.get_or_create(user=user),
+            "token": Token.objects.get_or_create(user=user)[0].key,
             "is_moderator": user.is_staff
         }
     else:
