@@ -1,29 +1,40 @@
-from django.shortcuts import render, get_object_or_404
-from django.forms.models import model_to_dict
-from django.views.generic import ListView, DetailView, CreateView, UpdateView, DeleteView
-from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth.models import User
 from django.contrib.auth import authenticate
-from django.core import serializers
 from rest_framework import status
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.authtoken.models import Token
-import json
-from django.http import JsonResponse
 from preparenote.quickstart.models import Note
 
 
 # Create your views here.
 @api_view(['POST'])
+@permission_classes([AllowAny])
 def createUser(request):
     # Initiliaze response
     response = {}
     response_status = status.HTTP_200_OK
 
+    username = request.data.get('username') or ''
+    email = request.data.get('email') or ''
+    password = request.data.get('password') or ''
+
+    if username == '' or email == '' or password == '':
+        response = {"success": False, "error": "Username, email and password are required."}
+        return Response(response, status=status.HTTP_400_BAD_REQUEST)
+
+    if len(username) > 150:
+        response = {"success": False, "error": "Username must be 150 characters or fewer."}
+        return Response(response, status=status.HTTP_400_BAD_REQUEST)
+
+    if User.objects.filter(username=username).exists():
+        response = {"success": False, "error": "A user with that username already exists."}
+        return Response(response, status=status.HTTP_400_BAD_REQUEST)
+
     # Try to create the user
     try:
-        user = User.objects.create_user(request.data.get('username'), email=request.data.get('email'), password=request.data.get('password'))
+        user = User.objects.create_user(username, email=email, password=password)
         response = {"success": True}
         response_status = status.HTTP_201_CREATED
     except Exception as e:
@@ -33,6 +44,7 @@ def createUser(request):
     return Response(response, status=response_status)
 
 @api_view(['POST'])
+@permission_classes([AllowAny])
 def getUser(request):
     # Initialize response
     response = {}
@@ -41,12 +53,13 @@ def getUser(request):
     # Get the user info
     user = authenticate(username=request.data.get('username'), password=request.data.get('password'));
     if user is not None:
+        token = Token.objects.get_or_create(user=user)[0]
         response = {
             "success": True,
             "username": user.username,
             "email": user.email,
             "id": user.id,
-            "token": Token.objects.get_or_create(user=user),
+            "token": token.key,
             "is_moderator": user.is_staff
         }
     else:
@@ -58,30 +71,64 @@ def getUser(request):
 
     return Response(response, status=response_status)
 
+@api_view(['POST'])
+def logoutUser(request):
+    request.auth.delete()
+    return Response({"success": True})
+
 # Note CRUD functionality
-class ListNotes(ListView):
-    model = Note
+def noteToDict(note):
+    return {
+        "note_id": note.note_id,
+        "title": note.title,
+        "content": note.content,
+    }
 
-    def get(self, request):
-        queryset = self.get_queryset()
+def checkNoteData(title, content):
+    if title == '' or content == '':
+        return "Title and content are required."
+    if len(title) > 200:
+        return "Title must be 200 characters or fewer."
+    return None
 
-        data = serializers.serialize('json', queryset)
-        return JsonResponse(json.loads(data), safe=False)
+@api_view(['GET', 'POST'])
+def notes(request):
+    if request.method == 'GET':
+        user_notes = Note.objects.filter(user=request.user).order_by('note_id')
+        note_list = []
+        for note in user_notes:
+            note_list.append(noteToDict(note))
+        return Response({"success": True, "notes": note_list})
 
-class DetailNote(DetailView):
-    model = Note
+    title = request.data.get('title') or ''
+    content = request.data.get('content') or ''
+    error = checkNoteData(title, content)
+    if error is not None:
+        return Response({"success": False, "error": error}, status=status.HTTP_400_BAD_REQUEST)
 
-    def get(self, request):
-            queryset = self.get_queryset()
-    
-            data = serializers.serialize('json', queryset)
-            return JsonResponse(json.loads(data), safe=False)
+    note = Note.objects.create(user=request.user, title=title, content=content)
+    return Response({"success": True, "note": noteToDict(note)}, status=status.HTTP_201_CREATED)
 
-class CreateNote(CreateView):
-    model = Note
+@api_view(['GET', 'PUT', 'DELETE'])
+def noteDetail(request, note_id):
+    note = Note.objects.filter(note_id=note_id, user=request.user).first()
+    if note is None:
+        return Response({"success": False, "error": "Note not found"}, status=status.HTTP_404_NOT_FOUND)
 
-class UpdateNote(UpdateView):
-    model = Note
+    if request.method == 'GET':
+        return Response({"success": True, "note": noteToDict(note)})
 
-class DeleteNote(DeleteView):
-    model = Note
+    if request.method == 'PUT':
+        title = request.data.get('title') or ''
+        content = request.data.get('content') or ''
+        error = checkNoteData(title, content)
+        if error is not None:
+            return Response({"success": False, "error": error}, status=status.HTTP_400_BAD_REQUEST)
+
+        note.title = title
+        note.content = content
+        note.save()
+        return Response({"success": True, "note": noteToDict(note)})
+
+    note.delete()
+    return Response({"success": True})
