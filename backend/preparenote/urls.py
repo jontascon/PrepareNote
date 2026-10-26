@@ -18,6 +18,7 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path
 from preparenote.quickstart import views
+from preparenote.exams import views as exam_views
 
 urlpatterns = [
     path("admin/", admin.site.urls),
@@ -26,5 +27,7 @@ urlpatterns = [
     path("logout/", views.logoutUser, name="logout"),
 
     path("notes/", views.notes, name="notes"),
-    path("notes/<int:note_id>/", views.noteDetail, name="noteDetail")
+    path("notes/<int:note_id>/", views.noteDetail, name="noteDetail"),
+
+    path("exams/", exam_views.exams, name="exams")
 ]
