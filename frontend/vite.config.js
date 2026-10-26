@@ -7,6 +7,8 @@ export default defineConfig({
     proxy: {
       '/createUser': 'http://localhost:8000',
       '/getUser': 'http://localhost:8000',
+      '/logout': 'http://localhost:8000',
+      '/notes': 'http://localhost:8000',
     },
   },
   test: {

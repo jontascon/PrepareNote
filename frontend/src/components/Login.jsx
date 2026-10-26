@@ -37,6 +37,8 @@ function Login(props) {
           id: data.id,
           username: data.username,
           email: data.email,
+          isModerator: data.is_moderator === true,
+          token: data.token,
         };
         props.onLogin(user);
       } else {
