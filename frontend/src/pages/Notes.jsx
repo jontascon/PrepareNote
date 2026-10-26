@@ -20,6 +20,7 @@ function Notes(props) {
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [studyStatus, setStudyStatus] = useState('learning');
+  const [isPublic, setIsPublic] = useState(false);
   const [topicId, setTopicId] = useState('');
   const [topics, setTopics] = useState([]);
   const [search, setSearch] = useState('');
@@ -92,6 +93,10 @@ function Notes(props) {
     setStudyStatus(event.target.value);
   }
 
+  function handlePublicChange(event) {
+    setIsPublic(event.target.checked);
+  }
+
   function handleTopicChange(event) {
     setTopicId(event.target.value);
   }
@@ -131,6 +136,7 @@ function Notes(props) {
           title: title,
           content: content,
           study_status: studyStatus,
+          is_public: isPublic,
           topic_id: topicToSend,
         }),
       });
@@ -155,6 +161,7 @@ function Notes(props) {
         setTitle('');
         setContent('');
         setStudyStatus('learning');
+        setIsPublic(false);
         setTopicId('');
         setErrorMessage('');
       } else {
@@ -170,6 +177,7 @@ function Notes(props) {
     setTitle(note.title);
     setContent(note.content);
     setStudyStatus(findStudyStatus(note.study_status).value);
+    setIsPublic(note.is_public === true);
     if (note.topic_id) {
       setTopicId(String(note.topic_id));
     } else {
@@ -182,6 +190,7 @@ function Notes(props) {
     setTitle('');
     setContent('');
     setStudyStatus('learning');
+    setIsPublic(false);
     setTopicId('');
     setEditingId(null);
   }
@@ -193,6 +202,13 @@ function Notes(props) {
       }
     }
     return null;
+  }
+
+  function showVisibility(note) {
+    if (note.is_public === true) {
+      return <span className="badge mb-2 ms-2 bg-primary">Public</span>;
+    }
+    return <span className="badge mb-2 ms-2 bg-dark">Private</span>;
   }
 
   async function deleteNote(id) {
@@ -327,6 +343,20 @@ function Notes(props) {
               </select>
             </div>
 
+            <div className="form-check mb-3">
+              <input
+                type="checkbox"
+                className="form-check-input"
+                id="is-public"
+                checked={isPublic}
+                onChange={handlePublicChange}
+              />
+              <label htmlFor="is-public" className="form-check-label">
+                Make this note public
+              </label>
+              <div className="form-text">Public notes can be viewed by other users. Private notes are only visible to you.</div>
+            </div>
+
             <button type="submit" className="btn btn-primary">{saveButtonText}</button>
             {cancelButton}
           </form>
@@ -357,6 +387,7 @@ function Notes(props) {
                 <span className={'badge mb-2 ' + findStudyStatus(note.study_status).badge}>
                   {findStudyStatus(note.study_status).label}
                 </span>
+                {showVisibility(note)}
                 <p className="card-text note-text">{note.content}</p>
                 <button
                   className="btn btn-sm btn-outline-primary me-2"

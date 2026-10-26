@@ -24,6 +24,7 @@ function makeNote(id, body) {
     title: body.title,
     content: body.content,
     study_status: studyStatus,
+    is_public: body.is_public === true,
     topic_id: body.topic_id,
   };
 }
@@ -261,4 +262,52 @@ test('the study status is still there after reloading the page', async () => {
 
   expect(await screen.findByText('Subnetting')).toBeTruthy();
   expect(screen.getByText('Reviewing', { selector: '.badge' })).toBeTruthy();
+});
+
+test('new notes are private by default', async () => {
+  await renderNotes();
+  writeNote('Subnetting', 'A /24 network has 256 addresses', 'Save Note');
+
+  expect(await screen.findByText('Private', { selector: '.badge' })).toBeTruthy();
+  expect(screen.queryByText('Public', { selector: '.badge' })).toBeNull();
+  expect(JSON.parse(findCall('POST')[1].body).is_public).toBe(false);
+});
+
+test('a note can be made public through the API', async () => {
+  await renderNotes();
+  fireEvent.click(screen.getByLabelText('Make this note public'));
+  writeNote('Subnetting', 'A /24 network has 256 addresses', 'Save Note');
+
+  expect(await screen.findByText('Public', { selector: '.badge' })).toBeTruthy();
+  expect(JSON.parse(findCall('POST')[1].body).is_public).toBe(true);
+  expect(screen.getByLabelText('Make this note public').checked).toBe(false);
+});
+
+test('editing a public note can make it private again through the API', async () => {
+  await renderNotes();
+  fireEvent.click(screen.getByLabelText('Make this note public'));
+  writeNote('Subnetting', 'A /24 network has 256 addresses', 'Save Note');
+
+  fireEvent.click(await screen.findByText('Edit'));
+  expect(screen.getByLabelText('Make this note public').checked).toBe(true);
+  fireEvent.click(screen.getByLabelText('Make this note public'));
+  writeNote('Subnetting', 'A /24 network has 256 addresses', 'Update Note');
+
+  expect(await screen.findByText('Private', { selector: '.badge' })).toBeTruthy();
+  expect(screen.queryByText('Public', { selector: '.badge' })).toBeNull();
+  expect(JSON.parse(findCall('PUT')[1].body).is_public).toBe(false);
+});
+
+test('a public note is still public after reloading the page', async () => {
+  const firstPage = render(<Notes user={user} />);
+  await waitFor(() => expect(fetch.mock.calls.length).toBe(2));
+  fireEvent.click(screen.getByLabelText('Make this note public'));
+  writeNote('Subnetting', 'A /24 network has 256 addresses', 'Save Note');
+  expect(await screen.findByText('Public', { selector: '.badge' })).toBeTruthy();
+
+  firstPage.unmount();
+  render(<Notes user={user} />);
+
+  expect(await screen.findByText('Subnetting')).toBeTruthy();
+  expect(screen.getByText('Public', { selector: '.badge' })).toBeTruthy();
 });
