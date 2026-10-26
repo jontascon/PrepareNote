@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 const studyStatuses = [
   { value: 'learning', label: 'Learning', badge: 'bg-secondary' },
@@ -15,14 +15,70 @@ function findStudyStatus(value) {
   return studyStatuses[0];
 }
 
-function Notes() {
+function Notes(props) {
   const [notes, setNotes] = useState([]);
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [studyStatus, setStudyStatus] = useState('learning');
-  const [isPublic, setIsPublic] = useState(false);
+  const [topicId, setTopicId] = useState('');
+  const [topics, setTopics] = useState([]);
   const [search, setSearch] = useState('');
   const [editingId, setEditingId] = useState(null);
+  const [errorMessage, setErrorMessage] = useState('');
+
+  const authHeader = 'Token ' + props.user.token;
+
+  useEffect(() => {
+    async function loadNotes() {
+      try {
+        const response = await fetch('/notes/', {
+          headers: { Authorization: authHeader },
+        });
+        const data = await response.json();
+
+        if (data.success) {
+          setNotes(data.notes);
+        } else {
+          setErrorMessage('Could not load your notes.');
+        }
+      } catch (error) {
+        console.log(error);
+        setErrorMessage('Could not connect to the server. Please try again later.');
+      }
+    }
+
+    async function loadTopics() {
+      try {
+        const response = await fetch('/exams/', {
+          headers: { Authorization: authHeader },
+        });
+        const data = await response.json();
+
+        if (data.success) {
+          const topicList = [];
+          for (let i = 0; i < data.exams.length; i++) {
+            const exam = data.exams[i];
+            for (let j = 0; j < exam.sections.length; j++) {
+              const section = exam.sections[j];
+              for (let k = 0; k < section.topics.length; k++) {
+                const topic = section.topics[k];
+                topicList.push({
+                  id: topic.topic_id,
+                  name: exam.name + ' > ' + section.name + ' > ' + topic.name,
+                });
+              }
+            }
+          }
+          setTopics(topicList);
+        }
+      } catch (error) {
+        console.log(error);
+      }
+    }
+
+    loadNotes();
+    loadTopics();
+  }, [authHeader]);
 
   function handleTitleChange(event) {
     setTitle(event.target.value);
@@ -36,15 +92,15 @@ function Notes() {
     setStudyStatus(event.target.value);
   }
 
-  function handlePublicChange(event) {
-    setIsPublic(event.target.checked);
+  function handleTopicChange(event) {
+    setTopicId(event.target.value);
   }
 
   function handleSearchChange(event) {
     setSearch(event.target.value);
   }
 
-  function handleSubmit(event) {
+  async function handleSubmit(event) {
     event.preventDefault();
 
     if (title === '' || content === '') {
@@ -52,67 +108,119 @@ function Notes() {
       return;
     }
 
-    if (editingId === null) {
-      const newNote = {
-        id: Date.now(),
-        title: title,
-        content: content,
-        studyStatus: studyStatus,
-        isPublic: isPublic,
-      };
-      setNotes(notes.concat(newNote));
-    } else {
-      const updatedNotes = [];
-      for (let i = 0; i < notes.length; i++) {
-        if (notes[i].id === editingId) {
-          updatedNotes.push({
-            id: notes[i].id,
-            title: title,
-            content: content,
-            studyStatus: studyStatus,
-            isPublic: isPublic,
-          });
-        } else {
-          updatedNotes.push(notes[i]);
-        }
-      }
-      setNotes(updatedNotes);
-      setEditingId(null);
+    let topicToSend = null;
+    if (topicId !== '') {
+      topicToSend = Number(topicId);
     }
 
-    setTitle('');
-    setContent('');
-    setStudyStatus('learning');
-    setIsPublic(false);
+    let url = '/notes/';
+    let method = 'POST';
+    if (editingId !== null) {
+      url = '/notes/' + editingId + '/';
+      method = 'PUT';
+    }
+
+    try {
+      const response = await fetch(url, {
+        method: method,
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: authHeader,
+        },
+        body: JSON.stringify({
+          title: title,
+          content: content,
+          study_status: studyStatus,
+          topic_id: topicToSend,
+        }),
+      });
+      const data = await response.json();
+
+      if (data.success) {
+        if (editingId === null) {
+          setNotes(notes.concat(data.note));
+        } else {
+          const updatedNotes = [];
+          for (let i = 0; i < notes.length; i++) {
+            if (notes[i].note_id === editingId) {
+              updatedNotes.push(data.note);
+            } else {
+              updatedNotes.push(notes[i]);
+            }
+          }
+          setNotes(updatedNotes);
+          setEditingId(null);
+        }
+
+        setTitle('');
+        setContent('');
+        setStudyStatus('learning');
+        setTopicId('');
+        setErrorMessage('');
+      } else {
+        setErrorMessage('Could not save the note: ' + data.error);
+      }
+    } catch (error) {
+      console.log(error);
+      setErrorMessage('Could not connect to the server. Please try again later.');
+    }
   }
 
   function startEditing(note) {
     setTitle(note.title);
     setContent(note.content);
-    setStudyStatus(note.studyStatus);
-    setIsPublic(note.isPublic);
-    setEditingId(note.id);
+    setStudyStatus(findStudyStatus(note.study_status).value);
+    if (note.topic_id) {
+      setTopicId(String(note.topic_id));
+    } else {
+      setTopicId('');
+    }
+    setEditingId(note.note_id);
   }
 
   function cancelEditing() {
     setTitle('');
     setContent('');
     setStudyStatus('learning');
-    setIsPublic(false);
+    setTopicId('');
     setEditingId(null);
   }
 
-  function deleteNote(id) {
-    const newNotes = [];
-    for (let i = 0; i < notes.length; i++) {
-      if (notes[i].id !== id) {
-        newNotes.push(notes[i]);
+  function showTopic(note) {
+    for (let i = 0; i < topics.length; i++) {
+      if (topics[i].id === note.topic_id) {
+        return <p className="card-subtitle text-muted small mb-2">{topics[i].name}</p>;
       }
     }
-    setNotes(newNotes);
+    return null;
+  }
 
-    if (id === editingId) {
-      cancelEditing();
+  async function deleteNote(id) {
+    try {
+      const response = await fetch('/notes/' + id + '/', {
+        method: 'DELETE',
+        headers: { Authorization: authHeader },
+      });
+      const data = await response.json();
+
+      if (data.success) {
+        const newNotes = [];
+        for (let i = 0; i < notes.length; i++) {
+          if (notes[i].note_id !== id) {
+            newNotes.push(notes[i]);
+          }
+        }
+        setNotes(newNotes);
+
+        if (id === editingId) {
+          cancelEditing();
+        }
+      } else {
+        setErrorMessage('Could not delete the note.');
+      }
+    } catch (error) {
+      console.log(error);
+      setErrorMessage('Could not connect to the server. Please try again later.');
     }
   }
 
@@ -126,7 +234,8 @@ function Notes() {
 
   const statusCounts = { learning: 0, reviewing: 0, confident: 0 };
   for (let i = 0; i < notes.length; i++) {
-    statusCounts[notes[i].studyStatus] = statusCounts[notes[i].studyStatus] + 1;
+    const noteStatus = findStudyStatus(notes[i].study_status).value;
+    statusCounts[noteStatus] = statusCounts[noteStatus] + 1;
   }
 
   let progress = null;
@@ -203,18 +312,19 @@ function Notes() {
               </select>
             </div>
 
-            <div className="form-check mb-3">
-              <input
-                type="checkbox"
-                className="form-check-input"
-                id="is-public"
-                checked={isPublic}
-                onChange={handlePublicChange}
-              />
-              <label htmlFor="is-public" className="form-check-label">
-                Make this note public
-              </label>
-              <div className="form-text">Public notes can be viewed by other users. Private notes are only visible to you.</div>
+            <div className="mb-3">
+              <label htmlFor="topic" className="form-label">Topic</label>
+              <select
+                className="form-select"
+                id="topic"
+                value={topicId}
+                onChange={handleTopicChange}
+              >
+                <option value="">No topic</option>
+                {topics.map((topic) => (
+                  <option key={topic.id} value={topic.id}>{topic.name}</option>
+                ))}
+              </select>
             </div>
 
             <button type="submit" className="btn btn-primary">{saveButtonText}</button>
@@ -233,21 +343,20 @@ function Notes() {
             onChange={handleSearchChange}
           />
 
+          <p className="text-danger">{errorMessage}</p>
+
           {progress}
+
           <p>{message}</p>
 
           {shownNotes.map((note) => (
-            <div className="card mb-3" key={note.id}>
+            <div className="card mb-3" key={note.note_id}>
               <div className="card-body">
                 <h5 className="card-title">{note.title}</h5>
-                <span className={'badge mb-2 me-2 ' + findStudyStatus(note.studyStatus).badge}>
-                  {findStudyStatus(note.studyStatus).label}
+                {showTopic(note)}
+                <span className={'badge mb-2 ' + findStudyStatus(note.study_status).badge}>
+                  {findStudyStatus(note.study_status).label}
                 </span>
-                {note.isPublic ? (
-                  <span className="badge mb-2 bg-primary">Public</span>
-                ) : (
-                  <span className="badge mb-2 bg-dark">Private</span>
-                )}
                 <p className="card-text note-text">{note.content}</p>
                 <button
                   className="btn btn-sm btn-outline-primary me-2"
@@ -257,7 +366,7 @@ function Notes() {
                 </button>
                 <button
                   className="btn btn-sm btn-outline-danger"
-                  onClick={() => deleteNote(note.id)}
+                  onClick={() => deleteNote(note.note_id)}
                 >
                   Delete
                 </button>
