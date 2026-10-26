@@ -1,5 +1,6 @@
-from django.db import models
 from django.conf import settings
+from django.db import models
+
 
 # Create your models here.
 class Note(models.Model):
@@ -7,3 +8,29 @@ class Note(models.Model):
     title = models.CharField(max_length=200, default="")
     content = models.TextField()
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    # Where the note lives in the study hierarchy (Exam > Section > Topic > Note).
+    # PROTECT stops a topic from being deleted while notes still use it.
+    topic = models.ForeignKey(
+        "exams.Topic",
+        on_delete=models.PROTECT,
+        related_name="notes",
+        null=True,
+        blank=True,
+    )
+
+    @property
+    def section(self):
+        if self.topic is None:
+            return None
+        return self.topic.section
+
+    @property
+    def exam(self):
+        if self.topic is None:
+            return None
+        return self.topic.section.exam
+
+    def __str__(self):
+        if self.topic is None:
+            return f"Note {self.note_id}"
+        return f"Note {self.note_id} in {self.topic}"

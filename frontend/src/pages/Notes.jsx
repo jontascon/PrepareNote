@@ -4,6 +4,8 @@ function Notes(props) {
   const [notes, setNotes] = useState([]);
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
+  const [topicId, setTopicId] = useState('');
+  const [topics, setTopics] = useState([]);
   const [search, setSearch] = useState('');
   const [editingId, setEditingId] = useState(null);
   const [errorMessage, setErrorMessage] = useState('');
@@ -29,7 +31,37 @@ function Notes(props) {
       }
     }
 
+    async function loadTopics() {
+      try {
+        const response = await fetch('/exams/', {
+          headers: { Authorization: authHeader },
+        });
+        const data = await response.json();
+
+        if (data.success) {
+          const topicList = [];
+          for (let i = 0; i < data.exams.length; i++) {
+            const exam = data.exams[i];
+            for (let j = 0; j < exam.sections.length; j++) {
+              const section = exam.sections[j];
+              for (let k = 0; k < section.topics.length; k++) {
+                const topic = section.topics[k];
+                topicList.push({
+                  id: topic.topic_id,
+                  name: exam.name + ' > ' + section.name + ' > ' + topic.name,
+                });
+              }
+            }
+          }
+          setTopics(topicList);
+        }
+      } catch (error) {
+        console.log(error);
+      }
+    }
+
     loadNotes();
+    loadTopics();
   }, [authHeader]);
 
   function handleTitleChange(event) {
@@ -38,6 +70,10 @@ function Notes(props) {
 
   function handleContentChange(event) {
     setContent(event.target.value);
+  }
+
+  function handleTopicChange(event) {
+    setTopicId(event.target.value);
   }
 
   function handleSearchChange(event) {
@@ -50,6 +86,11 @@ function Notes(props) {
     if (title === '' || content === '') {
       alert('Please add a title and some text for your note.');
       return;
+    }
+
+    let topicToSend = null;
+    if (topicId !== '') {
+      topicToSend = Number(topicId);
     }
 
     let url = '/notes/';
@@ -69,6 +110,7 @@ function Notes(props) {
         body: JSON.stringify({
           title: title,
           content: content,
+          topic_id: topicToSend,
         }),
       });
       const data = await response.json();
@@ -91,6 +133,7 @@ function Notes(props) {
 
         setTitle('');
         setContent('');
+        setTopicId('');
         setErrorMessage('');
       } else {
         setErrorMessage('Could not save the note: ' + data.error);
@@ -104,13 +147,28 @@ function Notes(props) {
   function startEditing(note) {
     setTitle(note.title);
     setContent(note.content);
+    if (note.topic_id) {
+      setTopicId(String(note.topic_id));
+    } else {
+      setTopicId('');
+    }
     setEditingId(note.note_id);
   }
 
   function cancelEditing() {
     setTitle('');
     setContent('');
+    setTopicId('');
     setEditingId(null);
+  }
+
+  function showTopic(note) {
+    for (let i = 0; i < topics.length; i++) {
+      if (topics[i].id === note.topic_id) {
+        return <p className="card-subtitle text-muted small mb-2">{topics[i].name}</p>;
+      }
+    }
+    return null;
   }
 
   async function deleteNote(id) {
@@ -199,6 +257,21 @@ function Notes(props) {
               ></textarea>
             </div>
 
+            <div className="mb-3">
+              <label htmlFor="topic" className="form-label">Topic</label>
+              <select
+                className="form-select"
+                id="topic"
+                value={topicId}
+                onChange={handleTopicChange}
+              >
+                <option value="">No topic</option>
+                {topics.map((topic) => (
+                  <option key={topic.id} value={topic.id}>{topic.name}</option>
+                ))}
+              </select>
+            </div>
+
             <button type="submit" className="btn btn-primary">{saveButtonText}</button>
             {cancelButton}
           </form>
@@ -223,6 +296,7 @@ function Notes(props) {
             <div className="card mb-3" key={note.note_id}>
               <div className="card-body">
                 <h5 className="card-title">{note.title}</h5>
+                {showTopic(note)}
                 <p className="card-text note-text">{note.content}</p>
                 <button
                   className="btn btn-sm btn-outline-primary me-2"

@@ -3,17 +3,29 @@ import Notes from './Notes.jsx';
 
 const user = { id: 1, username: 'ritam', email: 'ritam@example.com', isModerator: false, token: 'abc123' };
 
+const exams = [
+  {
+    exam_id: 1,
+    name: 'AWS',
+    sections: [{ section_id: 1, name: 'Networking', topics: [{ topic_id: 3, name: 'VPC Peering' }] }],
+  },
+];
+
 function fakeServer(url, options) {
   let data = { success: true, notes: [] };
 
+  if (url === '/exams/') {
+    data = { success: true, exams: exams };
+  }
+
   if (options && options.method === 'POST') {
     const body = JSON.parse(options.body);
-    data = { success: true, note: { note_id: 7, title: body.title, content: body.content } };
+    data = { success: true, note: { note_id: 7, title: body.title, content: body.content, topic_id: body.topic_id } };
   }
 
   if (options && options.method === 'PUT') {
     const body = JSON.parse(options.body);
-    data = { success: true, note: { note_id: 7, title: body.title, content: body.content } };
+    data = { success: true, note: { note_id: 7, title: body.title, content: body.content, topic_id: body.topic_id } };
   }
 
   if (options && options.method === 'DELETE') {
@@ -35,7 +47,7 @@ function findCall(method) {
 
 async function renderNotes() {
   render(<Notes user={user} />);
-  await waitFor(() => expect(fetch.mock.calls.length).toBe(1));
+  await waitFor(() => expect(fetch.mock.calls.length).toBe(2));
 }
 
 function writeNote(title, content, buttonText) {
@@ -49,8 +61,13 @@ beforeEach(() => {
 });
 
 test('loads the notes from the backend with the token', async () => {
-  globalThis.fetch = vi.fn().mockResolvedValue({
-    json: () => Promise.resolve({ success: true, notes: [{ note_id: 1, title: 'Saved note', content: 'from the database' }] }),
+  globalThis.fetch = vi.fn((url) => {
+    if (url === '/notes/') {
+      return Promise.resolve({
+        json: () => Promise.resolve({ success: true, notes: [{ note_id: 1, title: 'Saved note', content: 'from the database' }] }),
+      });
+    }
+    return fakeServer(url);
   });
 
   render(<Notes user={user} />);
@@ -113,4 +130,40 @@ test('shows an error when the server cannot be reached', async () => {
   render(<Notes user={user} />);
 
   expect(await screen.findByText('Could not connect to the server. Please try again later.')).toBeTruthy();
+});
+
+test('saves a note under a topic through the API', async () => {
+  await renderNotes();
+  expect(await screen.findByRole('option', { name: 'AWS > Networking > VPC Peering' })).toBeTruthy();
+
+  fireEvent.change(screen.getByLabelText('Topic'), { target: { value: '3' } });
+  writeNote('Peering', 'Peering is not transitive', 'Save Note');
+
+  expect(await screen.findByText('AWS > Networking > VPC Peering', { selector: '.card-subtitle' })).toBeTruthy();
+  expect(JSON.parse(findCall('POST')[1].body).topic_id).toBe(3);
+  expect(screen.getByLabelText('Topic').value).toBe('');
+});
+
+test('a note can be saved without a topic', async () => {
+  await renderNotes();
+  writeNote('Subnetting', 'A /24 network has 256 addresses', 'Save Note');
+
+  expect(await screen.findByText('Subnetting')).toBeTruthy();
+  expect(JSON.parse(findCall('POST')[1].body).topic_id).toBe(null);
+});
+
+test('editing a note shows its topic and can change it', async () => {
+  await renderNotes();
+  await screen.findByRole('option', { name: 'AWS > Networking > VPC Peering' });
+  fireEvent.change(screen.getByLabelText('Topic'), { target: { value: '3' } });
+  writeNote('Peering', 'Peering is not transitive', 'Save Note');
+  fireEvent.click(await screen.findByText('Edit'));
+
+  expect(screen.getByLabelText('Topic').value).toBe('3');
+
+  fireEvent.change(screen.getByLabelText('Topic'), { target: { value: '' } });
+  writeNote('Peering', 'Peering is not transitive', 'Update Note');
+
+  await waitFor(() => expect(findCall('PUT')).not.toBeNull());
+  expect(JSON.parse(findCall('PUT')[1].body).topic_id).toBe(null);
 });
