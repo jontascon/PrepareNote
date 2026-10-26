@@ -11,24 +11,61 @@ const exams = [
   },
 ];
 
+let savedNotes = [];
+let nextId = 7;
+
+function makeNote(id, body) {
+  let studyStatus = 'learning';
+  if (body.study_status) {
+    studyStatus = body.study_status;
+  }
+  return {
+    note_id: id,
+    title: body.title,
+    content: body.content,
+    study_status: studyStatus,
+    topic_id: body.topic_id,
+  };
+}
+
 function fakeServer(url, options) {
-  let data = { success: true, notes: [] };
+  let data = { success: true, notes: savedNotes };
 
   if (url === '/exams/') {
     data = { success: true, exams: exams };
   }
 
   if (options && options.method === 'POST') {
-    const body = JSON.parse(options.body);
-    data = { success: true, note: { note_id: 7, title: body.title, content: body.content, topic_id: body.topic_id } };
+    const note = makeNote(nextId, JSON.parse(options.body));
+    nextId = nextId + 1;
+    savedNotes = savedNotes.concat(note);
+    data = { success: true, note: note };
   }
 
   if (options && options.method === 'PUT') {
-    const body = JSON.parse(options.body);
-    data = { success: true, note: { note_id: 7, title: body.title, content: body.content, topic_id: body.topic_id } };
+    const id = Number(url.split('/')[2]);
+    const note = makeNote(id, JSON.parse(options.body));
+    const updatedNotes = [];
+    for (let i = 0; i < savedNotes.length; i++) {
+      if (savedNotes[i].note_id === id) {
+        updatedNotes.push(note);
+      } else {
+        updatedNotes.push(savedNotes[i]);
+      }
+    }
+    savedNotes = updatedNotes;
+    data = { success: true, note: note };
   }
 
   if (options && options.method === 'DELETE') {
+    const id = Number(url.split('/')[2]);
+    const newNotes = [];
+    for (let i = 0; i < savedNotes.length; i++) {
+      if (savedNotes[i].note_id !== id) {
+        newNotes.push(savedNotes[i]);
+      }
+    }
+    savedNotes = newNotes;
     data = { success: true };
   }
 
@@ -57,6 +94,8 @@ function writeNote(title, content, buttonText) {
 }
 
 beforeEach(() => {
+  savedNotes = [];
+  nextId = 7;
   globalThis.fetch = vi.fn(fakeServer);
 });
 
@@ -166,4 +205,60 @@ test('editing a note shows its topic and can change it', async () => {
 
   await waitFor(() => expect(findCall('PUT')).not.toBeNull());
   expect(JSON.parse(findCall('PUT')[1].body).topic_id).toBe(null);
+});
+
+test('new notes start as Learning', async () => {
+  await renderNotes();
+  writeNote('Subnetting', 'A /24 network has 256 addresses', 'Save Note');
+
+  expect(await screen.findByText('Learning', { selector: '.badge' })).toBeTruthy();
+  expect(JSON.parse(findCall('POST')[1].body).study_status).toBe('learning');
+});
+
+test('saves the study status picked for a note through the API', async () => {
+  await renderNotes();
+  fireEvent.change(screen.getByLabelText('Study Status'), { target: { value: 'reviewing' } });
+  writeNote('Subnetting', 'A /24 network has 256 addresses', 'Save Note');
+
+  expect(await screen.findByText('Reviewing', { selector: '.badge' })).toBeTruthy();
+  expect(JSON.parse(findCall('POST')[1].body).study_status).toBe('reviewing');
+  expect(screen.getByLabelText('Study Status').value).toBe('learning');
+});
+
+test('editing a note can change its study status through the API', async () => {
+  await renderNotes();
+  writeNote('Subnetting', 'A /24 network has 256 addresses', 'Save Note');
+
+  fireEvent.click(await screen.findByText('Edit'));
+  expect(screen.getByLabelText('Study Status').value).toBe('learning');
+  fireEvent.change(screen.getByLabelText('Study Status'), { target: { value: 'confident' } });
+  writeNote('Subnetting', 'A /24 network has 256 addresses', 'Update Note');
+
+  expect(await screen.findByText('Confident', { selector: '.badge' })).toBeTruthy();
+  expect(screen.queryByText('Learning', { selector: '.badge' })).toBeNull();
+  expect(JSON.parse(findCall('PUT')[1].body).study_status).toBe('confident');
+});
+
+test('shows how many notes are in each study status', async () => {
+  await renderNotes();
+  writeNote('Subnetting', 'A /24 network has 256 addresses', 'Save Note');
+  await screen.findByText('Subnetting');
+  fireEvent.change(screen.getByLabelText('Study Status'), { target: { value: 'confident' } });
+  writeNote('VPC Peering', 'Peering is not transitive', 'Save Note');
+
+  expect(await screen.findByText('Learning: 1 | Reviewing: 0 | Confident: 1')).toBeTruthy();
+});
+
+test('the study status is still there after reloading the page', async () => {
+  const firstPage = render(<Notes user={user} />);
+  await waitFor(() => expect(fetch.mock.calls.length).toBe(2));
+  fireEvent.change(screen.getByLabelText('Study Status'), { target: { value: 'reviewing' } });
+  writeNote('Subnetting', 'A /24 network has 256 addresses', 'Save Note');
+  expect(await screen.findByText('Reviewing', { selector: '.badge' })).toBeTruthy();
+
+  firstPage.unmount();
+  render(<Notes user={user} />);
+
+  expect(await screen.findByText('Subnetting')).toBeTruthy();
+  expect(screen.getByText('Reviewing', { selector: '.badge' })).toBeTruthy();
 });

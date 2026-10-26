@@ -1,9 +1,25 @@
 import { useState, useEffect } from 'react';
 
+const studyStatuses = [
+  { value: 'learning', label: 'Learning', badge: 'bg-secondary' },
+  { value: 'reviewing', label: 'Reviewing', badge: 'bg-warning text-dark' },
+  { value: 'confident', label: 'Confident', badge: 'bg-success' },
+];
+
+function findStudyStatus(value) {
+  for (let i = 0; i < studyStatuses.length; i++) {
+    if (studyStatuses[i].value === value) {
+      return studyStatuses[i];
+    }
+  }
+  return studyStatuses[0];
+}
+
 function Notes(props) {
   const [notes, setNotes] = useState([]);
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
+  const [studyStatus, setStudyStatus] = useState('learning');
   const [topicId, setTopicId] = useState('');
   const [topics, setTopics] = useState([]);
   const [search, setSearch] = useState('');
@@ -72,6 +88,10 @@ function Notes(props) {
     setContent(event.target.value);
   }
 
+  function handleStudyStatusChange(event) {
+    setStudyStatus(event.target.value);
+  }
+
   function handleTopicChange(event) {
     setTopicId(event.target.value);
   }
@@ -110,6 +130,7 @@ function Notes(props) {
         body: JSON.stringify({
           title: title,
           content: content,
+          study_status: studyStatus,
           topic_id: topicToSend,
         }),
       });
@@ -133,6 +154,7 @@ function Notes(props) {
 
         setTitle('');
         setContent('');
+        setStudyStatus('learning');
         setTopicId('');
         setErrorMessage('');
       } else {
@@ -147,6 +169,7 @@ function Notes(props) {
   function startEditing(note) {
     setTitle(note.title);
     setContent(note.content);
+    setStudyStatus(findStudyStatus(note.study_status).value);
     if (note.topic_id) {
       setTopicId(String(note.topic_id));
     } else {
@@ -158,6 +181,7 @@ function Notes(props) {
   function cancelEditing() {
     setTitle('');
     setContent('');
+    setStudyStatus('learning');
     setTopicId('');
     setEditingId(null);
   }
@@ -206,6 +230,23 @@ function Notes(props) {
     if (noteTitle.includes(search.toLowerCase())) {
       shownNotes.push(notes[i]);
     }
+  }
+
+  const statusCounts = { learning: 0, reviewing: 0, confident: 0 };
+  for (let i = 0; i < notes.length; i++) {
+    const noteStatus = findStudyStatus(notes[i].study_status).value;
+    statusCounts[noteStatus] = statusCounts[noteStatus] + 1;
+  }
+
+  let progress = null;
+  if (notes.length > 0) {
+    progress = (
+      <p className="text-muted">
+        {'Learning: ' + statusCounts.learning +
+          ' | Reviewing: ' + statusCounts.reviewing +
+          ' | Confident: ' + statusCounts.confident}
+      </p>
+    );
   }
 
   let message = '';
@@ -258,6 +299,20 @@ function Notes(props) {
             </div>
 
             <div className="mb-3">
+              <label htmlFor="study-status" className="form-label">Study Status</label>
+              <select
+                className="form-select"
+                id="study-status"
+                value={studyStatus}
+                onChange={handleStudyStatusChange}
+              >
+                {studyStatuses.map((option) => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="mb-3">
               <label htmlFor="topic" className="form-label">Topic</label>
               <select
                 className="form-select"
@@ -290,6 +345,8 @@ function Notes(props) {
 
           <p className="text-danger">{errorMessage}</p>
 
+          {progress}
+
           <p>{message}</p>
 
           {shownNotes.map((note) => (
@@ -297,6 +354,9 @@ function Notes(props) {
               <div className="card-body">
                 <h5 className="card-title">{note.title}</h5>
                 {showTopic(note)}
+                <span className={'badge mb-2 ' + findStudyStatus(note.study_status).badge}>
+                  {findStudyStatus(note.study_status).label}
+                </span>
                 <p className="card-text note-text">{note.content}</p>
                 <button
                   className="btn btn-sm btn-outline-primary me-2"
