@@ -10,7 +10,12 @@ function loadSavedUser() {
   if (savedUser === null) {
     return null;
   }
-  return JSON.parse(savedUser);
+
+  const user = JSON.parse(savedUser);
+  if (user.token === undefined) {
+    return null;
+  }
+  return user;
 }
 
 function App() {
@@ -21,7 +26,16 @@ function App() {
     setUser(loggedInUser);
   }
 
-  function handleLogout() {
+  async function handleLogout() {
+    try {
+      await fetch('/logout/', {
+        method: 'POST',
+        headers: { Authorization: 'Token ' + user.token },
+      });
+    } catch (error) {
+      console.log(error);
+    }
+
     localStorage.removeItem('user');
     setUser(null);
   }
@@ -47,7 +61,7 @@ function App() {
   return (
     <div>
       <NavBar user={user} onLogout={handleLogout} />
-      <Notes />
+      <Notes user={user} />
     </div>
   );
 }

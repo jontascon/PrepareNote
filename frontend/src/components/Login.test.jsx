@@ -9,7 +9,7 @@ function fillInFormAndSubmit() {
 
 test('logs the user in when the username and password are correct', async () => {
   globalThis.fetch = vi.fn().mockResolvedValue({
-    json: () => Promise.resolve({ success: true, id: 1, username: 'ritam', email: 'ritam@example.com' }),
+    json: () => Promise.resolve({ success: true, id: 1, username: 'ritam', email: 'ritam@example.com', token: 'abc123' }),
   });
   const onLogin = vi.fn();
 
@@ -19,6 +19,7 @@ test('logs the user in when the username and password are correct', async () => 
   await waitFor(() => expect(onLogin.mock.calls.length).toBe(1));
   expect(onLogin.mock.calls[0][0].username).toBe('ritam');
   expect(onLogin.mock.calls[0][0].isModerator).toBe(false);
+  expect(onLogin.mock.calls[0][0].token).toBe('abc123');
   expect(fetch.mock.calls[0][0]).toBe('/getUser/');
   expect(fetch.mock.calls[0][1].method).toBe('POST');
 });
