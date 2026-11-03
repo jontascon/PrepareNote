@@ -3,6 +3,7 @@ import NavBar from './components/NavBar.jsx';
 import SignUp from './components/SignUp.jsx';
 import Login from './components/Login.jsx';
 import Notes from './pages/Notes.jsx';
+import PublicNotes from './pages/PublicNotes.jsx';
 import './App.css';
 
 function loadSavedUser() {
@@ -20,10 +21,12 @@ function loadSavedUser() {
 
 function App() {
   const [user, setUser] = useState(loadSavedUser());
+  const [page, setPage] = useState('my-notes');
 
   function handleLogin(loggedInUser) {
     localStorage.setItem('user', JSON.stringify(loggedInUser));
     setUser(loggedInUser);
+    setPage('my-notes');
   }
 
   async function handleLogout() {
@@ -58,10 +61,15 @@ function App() {
     );
   }
 
+  let currentPage = <Notes user={user} />;
+  if (page === 'public-notes') {
+    currentPage = <PublicNotes user={user} />;
+  }
+
   return (
     <div>
-      <NavBar user={user} onLogout={handleLogout} />
-      <Notes user={user} />
+      <NavBar user={user} page={page} onChangePage={setPage} onLogout={handleLogout} />
+      {currentPage}
     </div>
   );
 }

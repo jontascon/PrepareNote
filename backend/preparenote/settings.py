@@ -45,7 +45,8 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "rest_framework",
     "rest_framework.authtoken",
-    "preparenote.quickstart.apps.QuickstartConfig"
+    "preparenote.quickstart.apps.QuickstartConfig",
+    "preparenote.exams",
 ]
 
 MIDDLEWARE = [
