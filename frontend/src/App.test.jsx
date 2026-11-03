@@ -12,6 +12,10 @@ function fakeServer(url) {
     data = { success: true, notes: [] };
   }
 
+  if (url === '/exams/') {
+    data = { success: true, exams: [] };
+  }
+
   return Promise.resolve({ json: () => Promise.resolve(data) });
 }
 
