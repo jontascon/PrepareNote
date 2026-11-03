@@ -12,6 +12,17 @@ function fakeServer(url) {
     data = { success: true, notes: [] };
   }
 
+  if (url === '/exams/') {
+    data = { success: true, exams: [] };
+  }
+
+  if (url === '/notes/public/') {
+    data = {
+      success: true,
+      notes: [{ note_id: 9, title: 'Peering', content: 'Peering is not transitive', is_public: true, username: 'tim', topic_id: null, topic_name: null }],
+    };
+  }
+
   return Promise.resolve({ json: () => Promise.resolve(data) });
 }
 
@@ -93,6 +104,37 @@ test('is logged out after a refresh if the user logged out', async () => {
   render(<App />);
 
   expect(screen.getByRole('heading', { name: 'Log In' })).toBeTruthy();
+});
+
+test('switches between My Notes and Public Notes', async () => {
+  render(<App />);
+  logInAsRitam();
+  expect(await screen.findByText('No notes yet. Write your first one!')).toBeTruthy();
+
+  fireEvent.click(screen.getByRole('button', { name: 'Public Notes' }));
+
+  expect(await screen.findByText('Shared by tim')).toBeTruthy();
+  expect(screen.getByRole('heading', { name: 'Public Notes' })).toBeTruthy();
+  expect(screen.queryByRole('heading', { name: 'New Note' })).toBeNull();
+
+  fireEvent.click(screen.getByRole('button', { name: 'My Notes' }));
+
+  expect(await screen.findByRole('heading', { name: 'New Note' })).toBeTruthy();
+  expect(screen.queryByText('Shared by tim')).toBeNull();
+});
+
+test('starts on My Notes after logging out and back in', async () => {
+  render(<App />);
+  logInAsRitam();
+  expect(await screen.findByText('Logged in as ritam')).toBeTruthy();
+  fireEvent.click(screen.getByRole('button', { name: 'Public Notes' }));
+  expect(await screen.findByText('Shared by tim')).toBeTruthy();
+
+  fireEvent.click(screen.getByText('Log Out'));
+  expect(await screen.findByRole('heading', { name: 'Log In' })).toBeTruthy();
+  logInAsRitam();
+
+  expect(await screen.findByRole('heading', { name: 'New Note' })).toBeTruthy();
 });
 
 test('asks to log in again if the saved login has no token', () => {
