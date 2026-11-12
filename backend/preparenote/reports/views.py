@@ -52,8 +52,8 @@ def reportNoteGet(request, note_id):
     if report is None:
         return Response({"success": False, "error": "Report not found"}, status=status.HTTP_404_NOT_FOUND)
 
-    # Return the note content
-    return Response({"success": True, "report": reportToDict()})
+    # Return the report content
+    return Response({"success": True, "report": reportToDict(report)})
 
 @api_view(['GET', 'POST'])
 def reportNote(request, note_id):

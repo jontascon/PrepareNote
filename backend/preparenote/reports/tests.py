@@ -121,12 +121,12 @@ class ReportPublicNoteTests(APITestCase):
         self.assertEqual(self.public_note.title, "Shared")
         self.assertTrue(self.public_note.is_public)
 
-    def test_only_post_is_allowed(self):
+    """def test_only_post_is_allowed(self):
         self.client.force_authenticate(user=self.reader)
 
         response = self.client.get(f"/notes/{self.public_note.note_id}/report/")
 
-        self.assertEqual(response.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
+        self.assertEqual(response.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)""" # Commented this section because GET on this endpoint now retrieves the user's report
 
     def test_reports_are_removed_when_the_note_is_deleted(self):
         self.client.force_authenticate(user=self.reader)
@@ -164,7 +164,7 @@ class ReviewAndRemoveReports(APITestCase):
         self.note_owner = get_user_model().objects.create_user("note_owner", password="Testing")
         self.public_user = get_user_model().objects.create_user("public_user", password="Testing")
         self.public_user2 = get_user_model().objects.create_user("public_user2", password="Testing")
-        self.mod_user = get_user_model().objects.create_user("public_user", password="Testing", is_staff=True)
+        self.mod_user = get_user_model().objects.create_user("mod_user", password="Testing", is_staff=True)
         self.public_note = Note.objects.create(user=self.note_owner, title="Shared", content="For everyone.", is_public=True)
         self.private_note = Note.objects.create(user=self.note_owner, title="Mine", content="Only for me.")
 
@@ -190,6 +190,8 @@ class ReviewAndRemoveReports(APITestCase):
         self.assertFalse(response.data["success"])
 
     def test_get_report_success(self):
+        self.client.force_authenticate(user=self.public_user)
+
         # Successful attempt
         report = Report.objects.create(reporter=self.public_user, note=self.public_note)
 
