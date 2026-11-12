@@ -156,3 +156,71 @@ class ReportPublicNoteTests(APITestCase):
         response = self.client.get("/notes/public/")
 
         self.assertFalse(response.data["notes"][0]["reported"])
+
+class ReviewAndRemoveReports(APITestCase):
+    """Covers the acceptance criteria for issue #23."""
+
+    def setUp(self):
+        self.note_owner = get_user_model().objects.create_user("note_owner", password="Testing")
+        self.public_user = get_user_model().objects.create_user("public_user", password="Testing")
+        self.public_user2 = get_user_model().objects.create_user("public_user2", password="Testing")
+        self.mod_user = get_user_model().objects.create_user("public_user", password="Testing", is_staff=True)
+        self.public_note = Note.objects.create(user=self.note_owner, title="Shared", content="For everyone.", is_public=True)
+        self.private_note = Note.objects.create(user=self.note_owner, title="Mine", content="Only for me.")
+
+    def getReport(self, note_id):
+        return self.client.get(f"/notes/{note_id}/report/")
+
+    def listReports(self, note_id):
+        return self.client.get(f"/notes/{note_id}/reports/")
+
+    def removeReport(self, note_id, reporter_id=None):
+        if reporter_id:
+            return self.client.post(f"/notes/{note_id}/removeReport/{reporter_id}")
+
+        return self.client.post(f"/notes/{note_id}/removeReport")
+
+    def test_get_report_fail(self):
+        self.client.force_authenticate(user=self.public_user)
+
+        # Failed attempt
+        response = self.getReport(self.public_note.note_id)
+
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertFalse(response.data["success"])
+
+    def test_get_report_success(self):
+        # Successful attempt
+        report = Report.objects.create(reporter=self.public_user, note=self.public_note)
+
+        response = self.getReport(self.public_note.note_id)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(response.data["success"])
+
+    def test_unauthorized_list_reports(self):
+        self.client.force_authenticate(user=self.public_user)
+        report = Report.objects.create(reporter=self.public_user, note=self.public_note)
+
+        response = self.listReports(self.public_note.note_id)
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+        self.assertFalse(response.data["success"])
+
+    def test_authorized_list_reports(self):
+        self.client.force_authenticate(user=self.mod_user)
+
+        # Create report and test
+        report = Report.objects.create(reporter=self.public_user, note=self.public_note)
+
+        response = self.listReports(self.public_note.note_id)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(response.data["success"])
+        self.assertEqual(len(response.data["reports"]), 1)
+
+        # Create secondary report
+        report = Report.objects.create(reporter=self.public_user2, note=self.public_note)
+
+        response = self.listReports(self.public_note.note_id)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(response.data["success"])
+        self.assertEqual(len(response.data["reports"]), 2)
