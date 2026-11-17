@@ -87,6 +87,7 @@ def noteToDict(note):
         "is_public": note.is_public,
         "username": note.user.username,
         "topic_id": note.topic_id,
+        "source": note.source
     }
 
 def readIsPublic(value):
@@ -123,6 +124,7 @@ def notes(request):
     title = request.data.get('title') or ''
     content = request.data.get('content') or ''
     study_status = request.data.get('study_status') or Note.StudyStatus.LEARNING
+    source = request.data.get('source') or ''
     error = checkNoteData(title, content, study_status)
     if error is not None:
         return Response({"success": False, "error": error}, status=status.HTTP_400_BAD_REQUEST)
@@ -142,6 +144,7 @@ def notes(request):
         study_status=study_status,
         is_public=is_public,
         topic=topic,
+        source=source
     )
     return Response({"success": True, "note": noteToDict(note)}, status=status.HTTP_201_CREATED)
 
@@ -180,6 +183,7 @@ def noteDetail(request, note_id):
         title = request.data.get('title') or ''
         content = request.data.get('content') or ''
         study_status = request.data.get('study_status') or note.study_status
+        source = request.data.get('source') or note.source
         error = checkNoteData(title, content, study_status)
         if error is not None:
             return Response({"success": False, "error": error}, status=status.HTTP_400_BAD_REQUEST)
@@ -196,6 +200,7 @@ def noteDetail(request, note_id):
         note.title = title
         note.content = content
         note.study_status = study_status
+        note.source = source
         if 'is_public' in request.data:
             note.is_public = readIsPublic(request.data.get('is_public'))
         note.topic = topic
