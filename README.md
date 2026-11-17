@@ -1,49 +1,16 @@
 # PrepareNote
 A structured note-taking and knowledge-sharing platform for exam and certification preparation.
 
-## How notes are organized
+## Run the frontend
 
-Every note lives inside a clear study hierarchy:
-
-```
-Exam  >  Section  >  Topic  >  Note
-```
-
-- An **exam** (for example, "AWS Solutions Architect") has many **sections**.
-- A **section** (for example, "Networking") has many **topics**.
-- A **topic** (for example, "VPC Peering") has many **notes**.
-
-Notes can be private or public, so students can keep their own study notes or share them with others.
-
-## Tech stack
-
-| Part | Technology | Folder |
-|------|------------|--------|
-| Backend / REST API | Django + Django REST Framework | `backend/` |
-| Database | PostgreSQL | — |
-| Frontend | React | `frontend/` |
-| CI | GitHub Actions | `.github/workflows/` |
-
-## Running the backend locally
+The frontend is React + Vite + Bootstrap. You need Node.js installed (CI uses Node 22).
 
 ```bash
-cd backend
-python -m venv .venv
-source .venv/bin/activate        # Windows: .venv\Scripts\activate
-pip install -r requirements.txt
-
-# Required environment variables (never commit real values)
-export DJANGO_SECRET="any-long-random-string"
-export DATABASE_PASSWORD="ask-the-team"
-
-python manage.py migrate
-python manage.py runserver
+cd frontend
+npm install
+npm run dev
 ```
 
-Run the backend tests with `python manage.py test`.
+Then open the link it prints (usually http://localhost:5173).
 
-## Team workflow
-
-- Work is planned in Scrum sprints and tracked as GitHub issues.
-- Create a branch for each issue, then open a pull request into `main`.
-- Every pull request runs the CI checks and needs a review before it is merged.
+Run the frontend tests with `npm test`.
