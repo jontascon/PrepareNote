@@ -258,7 +258,7 @@ class NoteTests(APITestCase):
         note.refresh_from_db()
         self.assertEqual(note.title, "IP Addresses")
         self.assertEqual(note.content, "IPv6 uses 128-bit addresses.")
-        self.assertEqual(note.content, "Book")
+        self.assertEqual(note.source, "Book")
 
         response = self.client.get(f"/notes/{note.note_id}/")
 
@@ -268,7 +268,7 @@ class NoteTests(APITestCase):
             response.data["note"]["content"],
             "IPv6 uses 128-bit addresses.",
         )
-        self.assertEqual(note.content, "Book")
+        self.assertEqual(note.source, "Book")
 
     def test_delete_note(self):
         # PrpNt-TCID-13
