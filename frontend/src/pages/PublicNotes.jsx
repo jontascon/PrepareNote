@@ -1,5 +1,13 @@
 import { useState, useEffect } from 'react';
 
+function toNoteId(value) {
+  const id = Number(value);
+  if (Number.isInteger(id) && id > 0) {
+    return id;
+  }
+  return null;
+}
+
 function PublicNotes(props) {
   const [notes, setNotes] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -59,8 +67,14 @@ function PublicNotes(props) {
       return;
     }
 
+    const noteId = toNoteId(reportingId);
+    if (noteId === null) {
+      setReportError('Could not report the note.');
+      return;
+    }
+
     try {
-      const response = await fetch('/notes/' + reportingId + '/report/', {
+      const response = await fetch('/notes/' + encodeURIComponent(noteId) + '/report/', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

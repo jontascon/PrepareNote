@@ -208,3 +208,37 @@ test('the reason box allows at most 500 characters', async () => {
 
   expect(screen.getByLabelText('Why are you reporting this note?').getAttribute('maxLength')).toBe('500');
 });
+
+test('shows an error when a report cannot reach the server', async () => {
+  globalThis.fetch = vi.fn((url, options) => {
+    if (options && options.method === 'POST') {
+      return Promise.reject(new Error('Failed to fetch'));
+    }
+    return Promise.resolve({ json: () => Promise.resolve({ success: true, notes: sharedNotes }) });
+  });
+  await openReportForm();
+
+  fireEvent.change(screen.getByLabelText('Why are you reporting this note?'), { target: { value: 'Spam' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Send Report' }));
+
+  expect(await screen.findByText('Could not connect to the server. Please try again later.')).toBeTruthy();
+  expect(screen.queryByText('Reported')).toBeNull();
+});
+
+test('does not send a report when the note id is not a number', async () => {
+  const badNote = { ...sharedNotes[0], note_id: '../../logout' };
+  globalThis.fetch = vi.fn((url, options) => {
+    let data = { success: true, notes: [badNote] };
+    if (options && options.method === 'POST') {
+      data = { success: true };
+    }
+    return Promise.resolve({ json: () => Promise.resolve(data) });
+  });
+  await openReportForm();
+
+  fireEvent.change(screen.getByLabelText('Why are you reporting this note?'), { target: { value: 'Spam' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Send Report' }));
+
+  expect(await screen.findByText('Could not report the note.')).toBeTruthy();
+  expect(findPost()).toBeNull();
+});
