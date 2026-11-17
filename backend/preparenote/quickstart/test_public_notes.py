@@ -68,6 +68,29 @@ class PublicPrivateNoteTests(APITestCase):
         self.public_note.refresh_from_db()
         self.assertEqual(self.public_note.title, "Shared")
 
+    def test_other_user_cannot_edit_or_delete_a_private_note(self):
+        self.client.force_authenticate(user=self.other)
+
+        edit = self.client.put(f"/notes/{self.private_note.note_id}/", {"title": "Changed", "content": "Changed."})
+        delete = self.client.delete(f"/notes/{self.private_note.note_id}/")
+
+        self.assertEqual(edit.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertEqual(delete.status_code, status.HTTP_404_NOT_FOUND)
+        self.private_note.refresh_from_db()
+        self.assertEqual(self.private_note.title, "Mine")
+
+    def test_is_public_sent_as_form_text_is_saved(self):
+        self.client.force_authenticate(user=self.owner)
+
+        response = self.client.post("/notes/", {
+            "title": "Subnetting",
+            "content": "A /24 has 256 addresses.",
+            "is_public": "true",
+        })
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertTrue(response.data["note"]["is_public"])
+
     def test_private_notes_stay_out_of_other_users_lists(self):
         self.client.force_authenticate(user=self.other)
 

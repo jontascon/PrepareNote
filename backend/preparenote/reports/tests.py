@@ -1,3 +1,5 @@
+from unittest import mock
+
 from django.contrib.auth import get_user_model
 from rest_framework import status
 from rest_framework.test import APITestCase
@@ -70,6 +72,23 @@ class ReportPublicNoteTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertEqual(response.data["error"], "You already reported this note.")
         self.assertEqual(Report.objects.count(), 1)
+
+    def test_two_reports_at_the_same_time_only_save_one(self):
+        self.client.force_authenticate(user=self.reader)
+        Report.objects.create(note=self.public_note, reporter=self.reader, reason="Spam.")
+
+        with mock.patch.object(Report.objects, "filter") as find_reports:
+            find_reports.return_value.exists.return_value = False
+            response = self.report(self.public_note.note_id, "Still spam.")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data["error"], "You already reported this note.")
+        self.assertEqual(Report.objects.count(), 1)
+
+    def test_report_label_names_the_note_and_reporter(self):
+        report = Report.objects.create(note=self.public_note, reporter=self.reader, reason="Spam.")
+
+        self.assertEqual(str(report), f"Report on note {self.public_note.note_id} by reader")
 
     def test_different_users_can_report_the_same_note(self):
         third = get_user_model().objects.create_user("third", password="Testing987@")

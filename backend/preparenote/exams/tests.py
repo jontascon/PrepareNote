@@ -70,6 +70,16 @@ class ExamHierarchyTests(TestCase):
     def test_string_labels_show_the_full_path(self):
         self.assertEqual(str(self.vpc), "AWS Solutions Architect > Networking > VPC Peering")
 
+    def test_topic_knows_its_exam(self):
+        self.assertEqual(self.dns.exam, self.exam)
+
+    def test_note_label_shows_its_topic(self):
+        with_topic = Note.objects.create(user=self.user, topic=self.dns, content="Alias records are free.")
+        no_topic = Note.objects.create(user=self.user, content="No topic yet.")
+
+        self.assertEqual(str(with_topic), f"Note {with_topic.note_id} in AWS Solutions Architect > Networking > Route 53")
+        self.assertEqual(str(no_topic), f"Note {no_topic.note_id}")
+
 
 class ExamApiTests(APITestCase):
 
@@ -141,6 +151,29 @@ class ExamApiTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         note.refresh_from_db()
         self.assertIsNone(note.topic)
+
+    def test_topic_id_that_is_not_a_number_is_rejected(self):
+        response = self.client.post("/notes/", {
+            "title": "Peering",
+            "content": "Peering is not transitive.",
+            "topic_id": "abc",
+        }, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertFalse(Note.objects.exists())
+
+    def test_note_cannot_move_to_an_unknown_topic(self):
+        note = Note.objects.create(user=self.user, title="DNS", content="Alias records are free.", topic=self.vpc)
+
+        response = self.client.put("/notes/" + str(note.note_id) + "/", {
+            "title": "DNS",
+            "content": "Alias records are free.",
+            "topic_id": 9999,
+        }, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        note.refresh_from_db()
+        self.assertEqual(note.topic, self.vpc)
 
     def test_notes_list_includes_the_topic(self):
         Note.objects.create(user=self.user, title="Peering", content="Not transitive.", topic=self.vpc)

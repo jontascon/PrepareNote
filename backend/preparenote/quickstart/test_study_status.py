@@ -52,6 +52,20 @@ class StudyStatusTests(APITestCase):
         note.refresh_from_db()
         self.assertEqual(note.study_status, Note.StudyStatus.CONFIDENT)
 
+    def test_update_with_unknown_study_status_is_rejected(self):
+        note = Note.objects.create(user=self.user, title="Subnetting", content="A /24 has 256 addresses.")
+
+        response = self.client.put(f"/notes/{note.note_id}/", {
+            "title": "Subnetting",
+            "content": "A /24 has 256 addresses.",
+            "study_status": "done",
+        })
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertFalse(response.data["success"])
+        note.refresh_from_db()
+        self.assertEqual(note.study_status, Note.StudyStatus.LEARNING)
+
     def test_update_without_study_status_keeps_the_current_one(self):
         note = Note.objects.create(
             user=self.user,
