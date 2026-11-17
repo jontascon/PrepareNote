@@ -106,3 +106,24 @@ def removeReport(request, note_id, reporter_id):
     report.delete()
 
     return Response({"success": True})
+
+@api_view(['DELETE'])
+def removeReportedNote(request, note_id):
+    # Ensure user is a moderator
+    if not request.user.is_staff:
+         return Response({"success": False, "error": "Only moderators can remove reported notes"}, status=status.HTTP_401_UNAUTHORIZED)
+    
+    # Get the note
+    note = Note.objects.filter(note_id=note_id).first()
+    if note is None:
+        return Response({"success": False, "error": "Note not found"}, status=status.HTTP_404_NOT_FOUND)
+
+    # Ensure it has been reported
+    report = Report.objects.filter(note_id=note_id).first()
+    if report is None:
+         return Response({"success": False, "error": "Note has not been reported"}, status=status.HTTP_401_UNAUTHORIZED)
+
+    # Remove the ntoe
+    note.delete()
+
+    return Response({"success": True}, status=status.HTTP_200_OK)

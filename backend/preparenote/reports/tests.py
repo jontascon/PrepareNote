@@ -180,6 +180,9 @@ class ReviewAndRemoveReports(APITestCase):
 
         return self.client.post(f"/notes/{note_id}/removeReport")
 
+    def removeReportedNote(self, note_id):
+        return self.client.delete(f"/notes/{note_id}/removeReportedNote/")
+
     def test_get_report_fail(self):
         self.client.force_authenticate(user=self.public_user)
 
@@ -226,3 +229,9 @@ class ReviewAndRemoveReports(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertTrue(response.data["success"])
         self.assertEqual(len(response.data["reports"]), 2)
+
+    def test_remove_reported_note(self):
+        self.client.force_authenticate(user=self.mod_user)
+
+        # Create report
+        # TODO: Finish Tests
