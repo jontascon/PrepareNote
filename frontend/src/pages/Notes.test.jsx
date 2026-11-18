@@ -388,16 +388,28 @@ function addSearchNotes() {
   globalThis.fetch = vi.fn(searchServer);
 }
 
-test('searching sends the search text to the backend and shows the matches', async () => {
+async function changeFilter(label, value, hiddenTitle, shownTitle, expectedUrl) {
   addSearchNotes();
   await renderNotes();
-  expect(await screen.findByText('Subnetting')).toBeTruthy();
+  expect(await screen.findByText(hiddenTitle)).toBeTruthy();
 
-  fireEvent.change(screen.getByLabelText('Search notes'), { target: { value: 'transitive' } });
+  fireEvent.change(screen.getByLabelText(label), { target: { value: value } });
 
-  await waitFor(() => expect(screen.queryByText('Subnetting')).toBe(null));
-  expect(screen.getByText('Peering')).toBeTruthy();
-  expect(lastNotesUrl()).toBe('/notes/?search=transitive');
+  await waitFor(() => expect(screen.queryByText(hiddenTitle)).toBe(null));
+  expect(screen.getByText(shownTitle)).toBeTruthy();
+  expect(lastNotesUrl()).toBe(expectedUrl);
+}
+
+test('searching sends the search text to the backend and shows the matches', async () => {
+  await changeFilter('Search notes', 'transitive', 'Subnetting', 'Peering', '/notes/?search=transitive');
+});
+
+test('filters notes by study status through the API', async () => {
+  await changeFilter('Filter by study status', 'confident', 'Subnetting', 'Peering', '/notes/?study_status=confident');
+});
+
+test('filters notes by public or private through the API', async () => {
+  await changeFilter('Filter by public or private', 'private', 'Peering', 'Subnetting', '/notes/?visibility=private');
 });
 
 test('search text is encoded before it is sent', async () => {
@@ -415,17 +427,6 @@ test('the search box allows at most 200 characters', async () => {
   expect(screen.getByLabelText('Search notes').getAttribute('maxLength')).toBe('200');
 });
 
-test('filters notes by study status through the API', async () => {
-  addSearchNotes();
-  await renderNotes();
-  expect(await screen.findByText('Subnetting')).toBeTruthy();
-
-  fireEvent.change(screen.getByLabelText('Filter by study status'), { target: { value: 'confident' } });
-
-  await waitFor(() => expect(screen.queryByText('Subnetting')).toBe(null));
-  expect(lastNotesUrl()).toBe('/notes/?study_status=confident');
-});
-
 test('filters notes by exam and topic through the API', async () => {
   addSearchNotes();
   await renderNotes();
@@ -437,18 +438,6 @@ test('filters notes by exam and topic through the API', async () => {
   fireEvent.change(screen.getByLabelText('Filter by topic'), { target: { value: '3' } });
   await waitFor(() => expect(lastNotesUrl()).toBe('/notes/?exam_id=1&topic_id=3'));
   expect(screen.queryByText('Subnetting')).toBe(null);
-});
-
-test('filters notes by public or private through the API', async () => {
-  addSearchNotes();
-  await renderNotes();
-  expect(await screen.findByText('Peering')).toBeTruthy();
-
-  fireEvent.change(screen.getByLabelText('Filter by public or private'), { target: { value: 'private' } });
-
-  await waitFor(() => expect(screen.queryByText('Peering')).toBe(null));
-  expect(screen.getByText('Subnetting')).toBeTruthy();
-  expect(lastNotesUrl()).toBe('/notes/?visibility=private');
 });
 
 test('shows a message when no notes match the search', async () => {

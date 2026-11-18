@@ -1,5 +1,17 @@
 import { useState, useEffect } from 'react';
 
+function publicNotesUrl(search) {
+  const parts = [];
+  if (search.trim() !== '') {
+    parts.push('search=' + encodeURIComponent(search.trim()));
+  }
+
+  if (parts.length === 0) {
+    return '/notes/public/';
+  }
+  return '/notes/public/?' + parts.join('&');
+}
+
 function PublicNotes(props) {
   const [notes, setNotes] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -16,12 +28,8 @@ function PublicNotes(props) {
     let ignore = false;
 
     async function loadPublicNotes() {
-      let url = '/notes/public/';
-      if (search.trim() !== '') {
-        url = '/notes/public/?search=' + encodeURIComponent(search.trim());
-      }
-
       try {
+        const url = publicNotesUrl(search);
         const response = await fetch(url, {
           headers: { Authorization: authHeader },
         });
