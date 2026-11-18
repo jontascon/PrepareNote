@@ -234,4 +234,26 @@ class ReviewAndRemoveReports(APITestCase):
         self.client.force_authenticate(user=self.mod_user)
 
         # Create report
-        # TODO: Finish Tests
+        report = Report.objects.create(reporter=self.public_user, note=self.public_note)
+
+        # Remove the reported note
+        response = self.removeReportedNote(self.public_note.note_id)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(response.data["success"])
+
+        # Ensure successfully removed
+        self.assertIsNone(Note.objects.filter(note_id=self.public_note.note_id).first())
+
+    def test_remove_unauthorized_reported_note(self):
+        self.client.force_authenticate(user=self.public_user2)
+
+        # Create report
+        report = Report.objects.create(reporter=self.public_user, note=self.public_note)
+
+        # Remove the reported note
+        response = self.removeReportedNote(self.public_note.note_id)
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+        self.assertFalse(response.data["success"])
+
+        # Ensure not removed
+        self.assertIsNotNone(Note.objects.filter(note_id=self.public_note.note_id).first())
