@@ -96,6 +96,40 @@ test('shows an error when the server cannot be reached', async () => {
   expect(await screen.findByText('Could not connect to the server. Please try again later.')).toBeTruthy();
 });
 
+test('searching public notes sends the search text to the backend', async () => {
+  globalThis.fetch = vi.fn((url) => {
+    let found = sharedNotes;
+    if (url === '/notes/public/?search=peering') {
+      found = [sharedNotes[0]];
+    }
+    return Promise.resolve({ json: () => Promise.resolve({ success: true, notes: found }) });
+  });
+  render(<PublicNotes user={user} />);
+  expect(await screen.findByText('Subnetting')).toBeTruthy();
+
+  fireEvent.change(screen.getByLabelText('Search public notes'), { target: { value: 'peering' } });
+
+  expect(await screen.findByText('Peering')).toBeTruthy();
+  await vi.waitFor(() => expect(screen.queryByText('Subnetting')).toBe(null));
+  expect(fetch.mock.calls[fetch.mock.calls.length - 1][0]).toBe('/notes/public/?search=peering');
+});
+
+test('shows a message when no public notes match the search', async () => {
+  globalThis.fetch = vi.fn((url) => {
+    let found = sharedNotes;
+    if (url.startsWith('/notes/public/?search=')) {
+      found = [];
+    }
+    return Promise.resolve({ json: () => Promise.resolve({ success: true, notes: found }) });
+  });
+  render(<PublicNotes user={user} />);
+  expect(await screen.findByText('Peering')).toBeTruthy();
+
+  fireEvent.change(screen.getByLabelText('Search public notes'), { target: { value: 'kubernetes' } });
+
+  expect(await screen.findByText('No public notes match your search.')).toBeTruthy();
+});
+
 // Reporting public notes (#22)
 
 function reportServer(reportReply) {
@@ -207,38 +241,4 @@ test('the reason box allows at most 500 characters', async () => {
   await openReportForm();
 
   expect(screen.getByLabelText('Why are you reporting this note?').getAttribute('maxLength')).toBe('500');
-});
-
-test('searching public notes sends the search text to the backend', async () => {
-  globalThis.fetch = vi.fn((url) => {
-    let found = sharedNotes;
-    if (url === '/notes/public/?search=peering') {
-      found = [sharedNotes[0]];
-    }
-    return Promise.resolve({ json: () => Promise.resolve({ success: true, notes: found }) });
-  });
-  render(<PublicNotes user={user} />);
-  expect(await screen.findByText('Subnetting')).toBeTruthy();
-
-  fireEvent.change(screen.getByLabelText('Search public notes'), { target: { value: 'peering' } });
-
-  expect(await screen.findByText('Peering')).toBeTruthy();
-  await vi.waitFor(() => expect(screen.queryByText('Subnetting')).toBe(null));
-  expect(fetch.mock.calls[fetch.mock.calls.length - 1][0]).toBe('/notes/public/?search=peering');
-});
-
-test('shows a message when no public notes match the search', async () => {
-  globalThis.fetch = vi.fn((url) => {
-    let found = sharedNotes;
-    if (url.startsWith('/notes/public/?search=')) {
-      found = [];
-    }
-    return Promise.resolve({ json: () => Promise.resolve({ success: true, notes: found }) });
-  });
-  render(<PublicNotes user={user} />);
-  expect(await screen.findByText('Peering')).toBeTruthy();
-
-  fireEvent.change(screen.getByLabelText('Search public notes'), { target: { value: 'kubernetes' } });
-
-  expect(await screen.findByText('No public notes match your search.')).toBeTruthy();
 });
