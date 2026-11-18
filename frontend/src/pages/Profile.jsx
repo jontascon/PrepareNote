@@ -1,5 +1,23 @@
 import { useState, useEffect } from 'react';
 
+function looksLikeEmail(text) {
+  if (text.includes(' ')) {
+    return false;
+  }
+
+  const at = text.indexOf('@');
+  if (at < 1 || at !== text.lastIndexOf('@')) {
+    return false;
+  }
+
+  const domain = text.slice(at + 1);
+  const dot = domain.lastIndexOf('.');
+  if (dot < 1 || dot === domain.length - 1) {
+    return false;
+  }
+  return true;
+}
+
 function Profile(props) {
   const [profile, setProfile] = useState(null);
   const [username, setUsername] = useState('');
@@ -36,7 +54,7 @@ function Profile(props) {
       }
     }
 
-    loadProfile();
+    loadProfile().catch((error) => console.log(error));
   }, [authHeader]);
 
   function handleUsernameChange(event) {
@@ -75,7 +93,7 @@ function Profile(props) {
       setProfileError('Username can only use letters, numbers and @ . + - _');
       return;
     }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+    if (!looksLikeEmail(email.trim())) {
       setProfileError('Please enter a valid email address.');
       return;
     }

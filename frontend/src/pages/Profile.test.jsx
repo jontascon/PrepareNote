@@ -98,34 +98,30 @@ test('saves a new username and email through the API', async () => {
   expect(onUserChange.mock.calls[0][0].token).toBe('abc123');
 });
 
-test('asks for a username and email before saving', async () => {
+async function expectProfileError(label, value, message) {
   await renderProfile(vi.fn());
 
-  fireEvent.change(screen.getByLabelText('Username'), { target: { value: '' } });
+  fireEvent.change(screen.getByLabelText(label), { target: { value: value } });
   fireEvent.click(screen.getByRole('button', { name: 'Save Profile' }));
 
-  expect(screen.getByText('Please enter a username and an email.')).toBeTruthy();
+  expect(screen.getByText(message)).toBeTruthy();
   expect(findCall('/profile/', 'PUT')).toBe(null);
+}
+
+test('asks for a username and email before saving', async () => {
+  await expectProfileError('Username', '', 'Please enter a username and an email.');
 });
 
 test('rejects a username with bad characters before saving', async () => {
-  await renderProfile(vi.fn());
-
-  fireEvent.change(screen.getByLabelText('Username'), { target: { value: '<script>' } });
-  fireEvent.click(screen.getByRole('button', { name: 'Save Profile' }));
-
-  expect(screen.getByText('Username can only use letters, numbers and @ . + - _')).toBeTruthy();
-  expect(findCall('/profile/', 'PUT')).toBe(null);
+  await expectProfileError('Username', '<script>', 'Username can only use letters, numbers and @ . + - _');
 });
 
 test('rejects a bad email before saving', async () => {
-  await renderProfile(vi.fn());
+  await expectProfileError('Email', 'not-an-email', 'Please enter a valid email address.');
+});
 
-  fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'not-an-email' } });
-  fireEvent.click(screen.getByRole('button', { name: 'Save Profile' }));
-
-  expect(screen.getByText('Please enter a valid email address.')).toBeTruthy();
-  expect(findCall('/profile/', 'PUT')).toBe(null);
+test('rejects an email with no dot after the @ before saving', async () => {
+  await expectProfileError('Email', 'ritam@example', 'Please enter a valid email address.');
 });
 
 test('the username box allows at most 150 characters', async () => {
@@ -167,31 +163,29 @@ test('changes the password through the API and keeps you logged in with the new 
   expect(screen.getByLabelText('New password').value).toBe('');
 });
 
-test('asks for all three passwords', async () => {
+async function expectPasswordError(current, next, confirm, message) {
   await renderProfile(vi.fn());
 
-  fillPasswords('Testing987@', 'Better#Pass42', '');
+  fillPasswords(current, next, confirm);
 
-  expect(screen.getByText('Please fill in all three password boxes.')).toBeTruthy();
+  expect(screen.getByText(message)).toBeTruthy();
   expect(findCall('/profile/password/', 'POST')).toBe(null);
+}
+
+test('asks for all three passwords', async () => {
+  await expectPasswordError('Testing987@', 'Better#Pass42', '', 'Please fill in all three password boxes.');
 });
 
 test('the new passwords have to match', async () => {
-  await renderProfile(vi.fn());
-
-  fillPasswords('Testing987@', 'Better#Pass42', 'Better#Pass43');
-
-  expect(screen.getByText('The new passwords do not match.')).toBeTruthy();
-  expect(findCall('/profile/password/', 'POST')).toBe(null);
+  await expectPasswordError('Testing987@', 'Better#Pass42', 'Better#Pass43', 'The new passwords do not match.');
 });
 
 test('a new password of 7 characters is too short', async () => {
-  await renderProfile(vi.fn());
+  await expectPasswordError('Testing987@', 'Zq8#mW2', 'Zq8#mW2', 'Your new password must be at least 8 characters.');
+});
 
-  fillPasswords('Testing987@', 'Zq8#mW2', 'Zq8#mW2');
-
-  expect(screen.getByText('Your new password must be at least 8 characters.')).toBeTruthy();
-  expect(findCall('/profile/password/', 'POST')).toBe(null);
+test('the new password must be different from the current one', async () => {
+  await expectPasswordError('Testing987@', 'Testing987@', 'Testing987@', 'Your new password must be different from your current password.');
 });
 
 test('a new password of 8 characters is sent', async () => {
@@ -200,15 +194,6 @@ test('a new password of 8 characters is sent', async () => {
   fillPasswords('Testing987@', 'Zq8#mW2p', 'Zq8#mW2p');
 
   await waitFor(() => expect(findCall('/profile/password/', 'POST')).not.toBe(null));
-});
-
-test('the new password must be different from the current one', async () => {
-  await renderProfile(vi.fn());
-
-  fillPasswords('Testing987@', 'Testing987@', 'Testing987@');
-
-  expect(screen.getByText('Your new password must be different from your current password.')).toBeTruthy();
-  expect(findCall('/profile/password/', 'POST')).toBe(null);
 });
 
 test('shows the error from the server when the current password is wrong', async () => {
