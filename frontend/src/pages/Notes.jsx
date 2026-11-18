@@ -15,6 +15,14 @@ function findStudyStatus(value) {
   return studyStatuses[0];
 }
 
+function toNoteId(value) {
+  const id = Number(value);
+  if (Number.isInteger(id) && id > 0) {
+    return id;
+  }
+  return null;
+}
+
 function Notes(props) {
   const [notes, setNotes] = useState([]);
   const [title, setTitle] = useState('');
@@ -121,7 +129,12 @@ function Notes(props) {
     let url = '/notes/';
     let method = 'POST';
     if (editingId !== null) {
-      url = '/notes/' + editingId + '/';
+      const noteId = toNoteId(editingId);
+      if (noteId === null) {
+        setErrorMessage('Could not save the note.');
+        return;
+      }
+      url = '/notes/' + encodeURIComponent(noteId) + '/';
       method = 'PUT';
     }
 
@@ -212,8 +225,14 @@ function Notes(props) {
   }
 
   async function deleteNote(id) {
+    const noteId = toNoteId(id);
+    if (noteId === null) {
+      setErrorMessage('Could not delete the note.');
+      return;
+    }
+
     try {
-      const response = await fetch('/notes/' + id + '/', {
+      const response = await fetch('/notes/' + encodeURIComponent(noteId) + '/', {
         method: 'DELETE',
         headers: { Authorization: authHeader },
       });
