@@ -28,6 +28,7 @@ function NavBar(props) {
         <div>
           {pageButton('my-notes', 'My Notes')}
           {pageButton('public-notes', 'Public Notes')}
+          {pageButton('profile', 'Profile')}
         </div>
       );
     }

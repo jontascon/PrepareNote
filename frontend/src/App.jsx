@@ -4,6 +4,7 @@ import SignUp from './components/SignUp.jsx';
 import Login from './components/Login.jsx';
 import Notes from './pages/Notes.jsx';
 import PublicNotes from './pages/PublicNotes.jsx';
+import Profile from './pages/Profile.jsx';
 import './App.css';
 
 function cleanUser(user) {
@@ -86,6 +87,16 @@ function App() {
     setUser(null);
   }
 
+  function handleUserChange(changedUser) {
+    const safeUser = cleanUser(changedUser);
+    if (safeUser === null) {
+      return;
+    }
+
+    localStorage.setItem('user', JSON.stringify(safeUser));
+    setUser(safeUser);
+  }
+
   if (user === null) {
     return (
       <div>
@@ -107,6 +118,8 @@ function App() {
   let currentPage = <Notes user={user} />;
   if (page === 'public-notes') {
     currentPage = <PublicNotes user={user} />;
+  } else if (page === 'profile') {
+    currentPage = <Profile user={user} onUserChange={handleUserChange} />;
   }
 
   return (

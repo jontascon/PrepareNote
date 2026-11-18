@@ -8,6 +8,7 @@ export default defineConfig({
       '/createUser': 'http://localhost:8000',
       '/getUser': 'http://localhost:8000',
       '/logout': 'http://localhost:8000',
+      '/profile': 'http://localhost:8000',
       '/notes': 'http://localhost:8000',
       '/exams': 'http://localhost:8000',
     },
