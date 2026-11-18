@@ -501,7 +501,7 @@ function Notes(props) {
               onChange={handleSearchChange}
             />
             <div className="row g-2">
-              <div className="col-sm-6 col-lg-3">
+              <div className="col-sm-6 col-xl-3">
                 <select
                   className="form-select form-select-sm"
                   aria-label="Filter by exam"
@@ -514,7 +514,7 @@ function Notes(props) {
                   ))}
                 </select>
               </div>
-              <div className="col-sm-6 col-lg-3">
+              <div className="col-sm-6 col-xl-3">
                 <select
                   className="form-select form-select-sm"
                   aria-label="Filter by topic"
@@ -527,7 +527,7 @@ function Notes(props) {
                   ))}
                 </select>
               </div>
-              <div className="col-sm-6 col-lg-3">
+              <div className="col-sm-6 col-xl-3">
                 <select
                   className="form-select form-select-sm"
                   aria-label="Filter by study status"
@@ -540,7 +540,7 @@ function Notes(props) {
                   ))}
                 </select>
               </div>
-              <div className="col-sm-6 col-lg-3">
+              <div className="col-sm-6 col-xl-3">
                 <select
                   className="form-select form-select-sm"
                   aria-label="Filter by public or private"
