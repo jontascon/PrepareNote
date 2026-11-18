@@ -8,31 +8,55 @@ function PublicNotes(props) {
   const [reason, setReason] = useState('');
   const [reportError, setReportError] = useState('');
   const [thanksMessage, setThanksMessage] = useState('');
+  const [search, setSearch] = useState('');
 
   const authHeader = 'Token ' + props.user.token;
 
   useEffect(() => {
+    let ignore = false;
+
     async function loadPublicNotes() {
+      let url = '/notes/public/';
+      if (search.trim() !== '') {
+        url = '/notes/public/?search=' + encodeURIComponent(search.trim());
+      }
+
       try {
-        const response = await fetch('/notes/public/', {
+        const response = await fetch(url, {
           headers: { Authorization: authHeader },
         });
         const data = await response.json();
 
+        if (ignore) {
+          return;
+        }
         if (data.success) {
           setNotes(data.notes);
+          setErrorMessage('');
         } else {
           setErrorMessage('Could not load public notes.');
         }
       } catch (error) {
         console.log(error);
-        setErrorMessage('Could not connect to the server. Please try again later.');
+        if (!ignore) {
+          setErrorMessage('Could not connect to the server. Please try again later.');
+        }
       }
-      setLoading(false);
+      if (!ignore) {
+        setLoading(false);
+      }
     }
 
     loadPublicNotes();
-  }, [authHeader]);
+
+    return () => {
+      ignore = true;
+    };
+  }, [authHeader, search]);
+
+  function handleSearchChange(event) {
+    setSearch(event.target.value);
+  }
 
   function handleReasonChange(event) {
     setReason(event.target.value);
@@ -137,13 +161,27 @@ function PublicNotes(props) {
   if (loading) {
     message = 'Loading public notes...';
   } else if (errorMessage === '' && notes.length === 0) {
-    message = 'No public notes yet. Check back later!';
+    if (search.trim() !== '') {
+      message = 'No public notes match your search.';
+    } else {
+      message = 'No public notes yet. Check back later!';
+    }
   }
 
   return (
     <div className="container mt-4">
       <h2 className="mb-1">Public Notes</h2>
       <p className="text-muted">Notes that other students have shared.</p>
+
+      <input
+        type="text"
+        className="form-control mb-3"
+        placeholder="Search public notes by title or text..."
+        aria-label="Search public notes"
+        maxLength="200"
+        value={search}
+        onChange={handleSearchChange}
+      />
 
       <p className="text-danger">{errorMessage}</p>
       <p className="text-success">{thanksMessage}</p>
