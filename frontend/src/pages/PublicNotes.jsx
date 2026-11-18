@@ -1,17 +1,5 @@
 import { useState, useEffect } from 'react';
 
-function publicNotesUrl(search) {
-  const parts = [];
-  if (search.trim() !== '') {
-    parts.push('search=' + encodeURIComponent(search.trim()));
-  }
-
-  if (parts.length === 0) {
-    return '/notes/public/';
-  }
-  return '/notes/public/?' + parts.join('&');
-}
-
 function PublicNotes(props) {
   const [notes, setNotes] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -25,42 +13,27 @@ function PublicNotes(props) {
   const authHeader = 'Token ' + props.user.token;
 
   useEffect(() => {
-    let ignore = false;
-
     async function loadPublicNotes() {
       try {
-        const url = publicNotesUrl(search);
-        const response = await fetch(url, {
+        const response = await fetch('/notes/public/', {
           headers: { Authorization: authHeader },
         });
         const data = await response.json();
 
-        if (ignore) {
-          return;
-        }
         if (data.success) {
           setNotes(data.notes);
-          setErrorMessage('');
         } else {
           setErrorMessage('Could not load public notes.');
         }
       } catch (error) {
         console.log(error);
-        if (!ignore) {
-          setErrorMessage('Could not connect to the server. Please try again later.');
-        }
+        setErrorMessage('Could not connect to the server. Please try again later.');
       }
-      if (!ignore) {
-        setLoading(false);
-      }
+      setLoading(false);
     }
 
     loadPublicNotes();
-
-    return () => {
-      ignore = true;
-    };
-  }, [authHeader, search]);
+  }, [authHeader]);
 
   function handleSearchChange(event) {
     setSearch(event.target.value);
@@ -165,15 +138,22 @@ function PublicNotes(props) {
     );
   }
 
+  const searchText = search.trim().toLowerCase();
+  const shownNotes = [];
+  for (let i = 0; i < notes.length; i++) {
+    const noteText = (notes[i].title + ' ' + notes[i].content).toLowerCase();
+    if (searchText === '' || noteText.includes(searchText)) {
+      shownNotes.push(notes[i]);
+    }
+  }
+
   let message = '';
   if (loading) {
     message = 'Loading public notes...';
   } else if (errorMessage === '' && notes.length === 0) {
-    if (search.trim() !== '') {
-      message = 'No public notes match your search.';
-    } else {
-      message = 'No public notes yet. Check back later!';
-    }
+    message = 'No public notes yet. Check back later!';
+  } else if (errorMessage === '' && shownNotes.length === 0) {
+    message = 'No public notes match your search.';
   }
 
   return (
@@ -196,7 +176,7 @@ function PublicNotes(props) {
 
       <p>{message}</p>
 
-      {notes.map((note) => (
+      {shownNotes.map((note) => (
         <div className="card mb-3" key={note.note_id}>
           <div className="card-body">
             <h5 className="card-title">{note.title}</h5>
