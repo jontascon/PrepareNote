@@ -311,3 +311,26 @@ test('a public note is still public after reloading the page', async () => {
   expect(await screen.findByText('Subnetting')).toBeTruthy();
   expect(screen.getByText('Public', { selector: '.badge' })).toBeTruthy();
 });
+
+test('does not delete a note with a bad id', async () => {
+  savedNotes = [{ note_id: '1/../../logout', title: 'Bad id note', content: 'should not be sent', study_status: 'learning', is_public: false, topic_id: null }];
+  await renderNotes();
+  expect(await screen.findByText('Bad id note')).toBeTruthy();
+
+  fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
+
+  expect(await screen.findByText('Could not delete the note.')).toBeTruthy();
+  expect(findCall('DELETE')).toBe(null);
+});
+
+test('does not update a note with a bad id', async () => {
+  savedNotes = [{ note_id: 'abc', title: 'Bad id note', content: 'should not be sent', study_status: 'learning', is_public: false, topic_id: null }];
+  await renderNotes();
+  expect(await screen.findByText('Bad id note')).toBeTruthy();
+
+  fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Update Note' }));
+
+  expect(await screen.findByText('Could not save the note.')).toBeTruthy();
+  expect(findCall('PUT')).toBe(null);
+});

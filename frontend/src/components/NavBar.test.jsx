@@ -49,3 +49,13 @@ test('shows no page buttons when nobody is logged in', () => {
   expect(screen.queryByText('My Notes')).toBeNull();
   expect(screen.queryByText('Public Notes')).toBeNull();
 });
+
+test('the Profile button opens the profile page', () => {
+  const user = { id: 2, username: 'ritam', email: 'ritam@example.com', isModerator: false };
+  const onChangePage = vi.fn();
+  render(<NavBar user={user} page="my-notes" onChangePage={onChangePage} onLogout={vi.fn()} />);
+
+  fireEvent.click(screen.getByRole('button', { name: 'Profile' }));
+
+  expect(onChangePage).toHaveBeenCalledWith('profile');
+});
