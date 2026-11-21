@@ -9,6 +9,7 @@ from preparenote.reports.models import Report
 
 def reportToDict(report):
     return {
+        "reporter_id": report.reporter.id,
         "report_id": report.id,
         "note_id": report.note_id,
         "reason": report.reason,
@@ -82,7 +83,7 @@ def listReports(request, note_id):
     return Response({"success": True, "reports": reportDicts})
 
 @api_view(['POST'])
-def removeReport(request, note_id, reporter_id):
+def removeReport(request, note_id, reporter_id=None):
     # Reporter id can be assumed from user if not provided
     if not reporter_id:
          reporter_id = request.user.id
@@ -95,12 +96,12 @@ def removeReport(request, note_id, reporter_id):
     # Get the reporter
     reporter = get_user_model().objects.filter(id=reporter_id).first()
     if reporter is None:
-         return Response({"success": False, "error": "User not found"})
+         return Response({"success": False, "error": "User not found"}, status=status.HTTP_404_NOT_FOUND)
 
     # Get the report. Ensure either user owns report or user is staff
     report = Report.objects.filter(note=note, reporter=reporter).first()
     if report is None or (request.user != reporter and not request.user.is_staff):
-         return Response({"success": False, "error": "Report not found"})
+         return Response({"success": False, "error": "Report not found"}, status=status.HTTP_404_NOT_FOUND)
 
     # Remove the report
     report.delete()

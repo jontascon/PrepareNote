@@ -178,7 +178,7 @@ class ReviewAndRemoveReports(APITestCase):
         if reporter_id:
             return self.client.post(f"/notes/{note_id}/removeReport/{reporter_id}")
 
-        return self.client.post(f"/notes/{note_id}/removeReport")
+        return self.client.post(f"/notes/{note_id}/removeReport/")
 
     def removeReportedNote(self, note_id):
         return self.client.delete(f"/notes/{note_id}/removeReportedNote/")
@@ -257,3 +257,36 @@ class ReviewAndRemoveReports(APITestCase):
 
         # Ensure not removed
         self.assertIsNotNone(Note.objects.filter(note_id=self.public_note.note_id).first())
+
+    def test_remove_own_report(self):
+        self.client.force_authenticate(user=self.public_user)
+        
+        # Create report
+        report = Report.objects.create(reporter=self.public_user, note=self.public_note)
+
+        # Remove the report
+        response = self.removeReport(self.public_note.note_id)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(response.data["success"])
+
+        # Ensure removed
+        self.assertIsNone(Report.objects.filter(note_id=self.public_note.note_id, reporter=self.public_user).first())
+
+    def test_remove_unauthorized_report(self):
+        self.client.force_authenticate(user=self.public_user2)
+        
+        # Create report
+        report = Report.objects.create(reporter=self.public_user, note=self.public_note)
+
+        # Remove the report
+        response = self.removeReport(self.public_note.note_id)
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertFalse(response.data["success"])
+
+        # Remove again with unauthorized request (displays 404 to hide the fact that another user reported it)
+        response = self.removeReport(self.public_note.note_id, self.public_user.id)
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertFalse(response.data["success"])
+
+        # Ensure not removed
+        self.assertIsNotNone(Report.objects.filter(note_id=self.public_note.note_id, reporter=self.public_user).first())
