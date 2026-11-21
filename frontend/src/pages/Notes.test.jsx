@@ -174,7 +174,7 @@ test('shows an error when the server cannot be reached', async () => {
 
 test('saves a note under a topic through the API', async () => {
   await renderNotes();
-  expect(await screen.findByRole('option', { name: 'AWS > Networking > VPC Peering' })).toBeTruthy();
+  expect(await screen.findAllByRole('option', { name: 'AWS > Networking > VPC Peering' })).toBeTruthy();
 
   fireEvent.change(screen.getByLabelText('Topic'), { target: { value: '3' } });
   writeNote('Peering', 'Peering is not transitive', 'Save Note');
@@ -194,7 +194,7 @@ test('a note can be saved without a topic', async () => {
 
 test('editing a note shows its topic and can change it', async () => {
   await renderNotes();
-  await screen.findByRole('option', { name: 'AWS > Networking > VPC Peering' });
+  await screen.findAllByRole('option', { name: 'AWS > Networking > VPC Peering' });
   fireEvent.change(screen.getByLabelText('Topic'), { target: { value: '3' } });
   writeNote('Peering', 'Peering is not transitive', 'Save Note');
   fireEvent.click(await screen.findByText('Edit'));
@@ -310,4 +310,156 @@ test('a public note is still public after reloading the page', async () => {
 
   expect(await screen.findByText('Subnetting')).toBeTruthy();
   expect(screen.getByText('Public', { selector: '.badge' })).toBeTruthy();
+});
+
+test('does not delete a note with a bad id', async () => {
+  savedNotes = [{ note_id: '1/../../logout', title: 'Bad id note', content: 'should not be sent', study_status: 'learning', is_public: false, topic_id: null }];
+  await renderNotes();
+  expect(await screen.findByText('Bad id note')).toBeTruthy();
+
+  fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
+
+  expect(await screen.findByText('Could not delete the note.')).toBeTruthy();
+  expect(findCall('DELETE')).toBe(null);
+});
+
+test('does not update a note with a bad id', async () => {
+  savedNotes = [{ note_id: 'abc', title: 'Bad id note', content: 'should not be sent', study_status: 'learning', is_public: false, topic_id: null }];
+  await renderNotes();
+  expect(await screen.findByText('Bad id note')).toBeTruthy();
+
+  fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Update Note' }));
+
+  expect(await screen.findByText('Could not save the note.')).toBeTruthy();
+  expect(findCall('PUT')).toBe(null);
+});
+
+function searchServer(url, options) {
+  if (url.startsWith('/notes/?')) {
+    const params = new URLSearchParams(url.split('?')[1]);
+    const found = [];
+    for (let i = 0; i < savedNotes.length; i++) {
+      const note = savedNotes[i];
+      let keep = true;
+      if (params.get('search') !== null) {
+        const text = (note.title + ' ' + note.content).toLowerCase();
+        if (!text.includes(params.get('search').toLowerCase())) {
+          keep = false;
+        }
+      }
+      if (params.get('study_status') !== null && note.study_status !== params.get('study_status')) {
+        keep = false;
+      }
+      if (params.get('topic_id') !== null && String(note.topic_id) !== params.get('topic_id')) {
+        keep = false;
+      }
+      if (params.get('visibility') === 'public' && note.is_public !== true) {
+        keep = false;
+      }
+      if (params.get('visibility') === 'private' && note.is_public === true) {
+        keep = false;
+      }
+      if (keep) {
+        found.push(note);
+      }
+    }
+    return Promise.resolve({ json: () => Promise.resolve({ success: true, notes: found }) });
+  }
+  return fakeServer(url, options);
+}
+
+function lastNotesUrl() {
+  let last = null;
+  for (let i = 0; i < fetch.mock.calls.length; i++) {
+    const url = fetch.mock.calls[i][0];
+    if (url.startsWith('/notes/') && !fetch.mock.calls[i][1].method) {
+      last = url;
+    }
+  }
+  return last;
+}
+
+function addSearchNotes() {
+  savedNotes = [
+    { note_id: 1, title: 'Subnetting', content: 'A /24 has 256 addresses', study_status: 'learning', is_public: false, topic_id: null },
+    { note_id: 2, title: 'Peering', content: 'Peering is not transitive', study_status: 'confident', is_public: true, topic_id: 3 },
+  ];
+  globalThis.fetch = vi.fn(searchServer);
+}
+
+async function changeFilter(label, value, hiddenTitle, shownTitle, expectedUrl) {
+  addSearchNotes();
+  await renderNotes();
+  expect(await screen.findByText(hiddenTitle)).toBeTruthy();
+
+  fireEvent.change(screen.getByLabelText(label), { target: { value: value } });
+
+  await waitFor(() => expect(screen.queryByText(hiddenTitle)).toBe(null));
+  expect(screen.getByText(shownTitle)).toBeTruthy();
+  expect(lastNotesUrl()).toBe(expectedUrl);
+}
+
+test('searching sends the search text to the backend and shows the matches', async () => {
+  await changeFilter('Search notes', 'transitive', 'Subnetting', 'Peering', '/notes/?search=transitive');
+});
+
+test('filters notes by study status through the API', async () => {
+  await changeFilter('Filter by study status', 'confident', 'Subnetting', 'Peering', '/notes/?study_status=confident');
+});
+
+test('filters notes by public or private through the API', async () => {
+  await changeFilter('Filter by public or private', 'private', 'Peering', 'Subnetting', '/notes/?visibility=private');
+});
+
+test('search text is encoded before it is sent', async () => {
+  addSearchNotes();
+  await renderNotes();
+
+  fireEvent.change(screen.getByLabelText('Search notes'), { target: { value: 'a&b=c/../logout' } });
+
+  await waitFor(() => expect(lastNotesUrl()).toBe('/notes/?search=a%26b%3Dc%2F..%2Flogout'));
+});
+
+test('the search box allows at most 200 characters', async () => {
+  await renderNotes();
+
+  expect(screen.getByLabelText('Search notes').getAttribute('maxLength')).toBe('200');
+});
+
+test('filters notes by exam and topic through the API', async () => {
+  addSearchNotes();
+  await renderNotes();
+  expect(await screen.findByRole('option', { name: 'AWS' })).toBeTruthy();
+
+  fireEvent.change(screen.getByLabelText('Filter by exam'), { target: { value: '1' } });
+  await waitFor(() => expect(lastNotesUrl()).toBe('/notes/?exam_id=1'));
+
+  fireEvent.change(screen.getByLabelText('Filter by topic'), { target: { value: '3' } });
+  await waitFor(() => expect(lastNotesUrl()).toBe('/notes/?exam_id=1&topic_id=3'));
+  expect(screen.queryByText('Subnetting')).toBe(null);
+});
+
+test('shows a message when no notes match the search', async () => {
+  addSearchNotes();
+  await renderNotes();
+
+  fireEvent.change(screen.getByLabelText('Search notes'), { target: { value: 'kubernetes' } });
+
+  expect(await screen.findByText('No notes match your search.')).toBeTruthy();
+});
+
+test('clear filters shows all the notes again', async () => {
+  addSearchNotes();
+  await renderNotes();
+  fireEvent.change(screen.getByLabelText('Search notes'), { target: { value: 'transitive' } });
+  fireEvent.change(screen.getByLabelText('Filter by study status'), { target: { value: 'confident' } });
+  await waitFor(() => expect(screen.queryByText('Subnetting')).toBe(null));
+
+  fireEvent.click(screen.getByRole('button', { name: 'Clear filters' }));
+
+  expect(await screen.findByText('Subnetting')).toBeTruthy();
+  expect(lastNotesUrl()).toBe('/notes/');
+  expect(screen.getByLabelText('Search notes').value).toBe('');
+  expect(screen.queryByRole('button', { name: 'Clear filters' })).toBe(null);
 });

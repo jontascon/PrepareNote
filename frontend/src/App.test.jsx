@@ -144,3 +144,53 @@ test('asks to log in again if the saved login has no token', () => {
 
   expect(screen.getByRole('heading', { name: 'Log In' })).toBeTruthy();
 });
+
+test('asks to log in again if the saved login has a bad token', () => {
+  localStorage.setItem('user', JSON.stringify({ id: 1, username: 'ritam', email: 'ritam@example.com', token: 'abc"; alert(1)' }));
+
+  render(<App />);
+
+  expect(screen.getByRole('heading', { name: 'Log In' })).toBeTruthy();
+});
+
+test('asks to log in again if the saved login is broken', () => {
+  localStorage.setItem('user', '{not json');
+
+  render(<App />);
+
+  expect(screen.getByRole('heading', { name: 'Log In' })).toBeTruthy();
+});
+
+test('only saves the expected login fields in the browser', async () => {
+  globalThis.fetch = vi.fn((url) => {
+    if (url === '/getUser/') {
+      return Promise.resolve({
+        json: () => Promise.resolve({ success: true, id: 1, username: 'ritam', email: 'ritam@example.com', is_moderator: false, token: 'abc123', extra: 'not needed' }),
+      });
+    }
+    return fakeServer(url);
+  });
+  render(<App />);
+  logInAsRitam();
+
+  expect(await screen.findByRole('heading', { name: 'New Note' })).toBeTruthy();
+  const saved = JSON.parse(localStorage.getItem('user'));
+  expect(saved).toEqual({ id: 1, username: 'ritam', email: 'ritam@example.com', isModerator: false, token: 'abc123' });
+});
+
+test('does not log in if the server sends a bad token', async () => {
+  globalThis.fetch = vi.fn((url) => {
+    if (url === '/getUser/') {
+      return Promise.resolve({
+        json: () => Promise.resolve({ success: true, id: 1, username: 'ritam', email: 'ritam@example.com', is_moderator: false, token: '../../logout' }),
+      });
+    }
+    return fakeServer(url);
+  });
+  render(<App />);
+  logInAsRitam();
+
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  expect(localStorage.getItem('user')).toBe(null);
+  expect(screen.getByRole('heading', { name: 'Log In' })).toBeTruthy();
+});
