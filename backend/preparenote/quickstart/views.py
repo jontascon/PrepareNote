@@ -183,7 +183,7 @@ def noteDetail(request, note_id):
         title = request.data.get('title') or ''
         content = request.data.get('content') or ''
         study_status = request.data.get('study_status') or note.study_status
-        source = request.data.get('source') or note.source
+        source = request.data.get('source') if "source" in request.data.keys() else note.source
         error = checkNoteData(title, content, study_status)
         if error is not None:
             return Response({"success": False, "error": error}, status=status.HTTP_400_BAD_REQUEST)

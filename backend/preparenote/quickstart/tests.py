@@ -251,14 +251,14 @@ class NoteTests(APITestCase):
         response = self.client.put(f"/notes/{note.note_id}/", {
             "title": "IP Addresses",
             "content": "IPv6 uses 128-bit addresses.",
-            "source": "Book"
+            "source": ""
         })
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         note.refresh_from_db()
         self.assertEqual(note.title, "IP Addresses")
         self.assertEqual(note.content, "IPv6 uses 128-bit addresses.")
-        self.assertEqual(note.source, "Book")
+        self.assertEqual(note.source, "")
 
         response = self.client.get(f"/notes/{note.note_id}/")
 
