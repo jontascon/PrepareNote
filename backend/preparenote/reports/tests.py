@@ -121,13 +121,6 @@ class ReportPublicNoteTests(APITestCase):
         self.assertEqual(self.public_note.title, "Shared")
         self.assertTrue(self.public_note.is_public)
 
-    def test_only_post_is_allowed(self):
-        self.client.force_authenticate(user=self.reader)
-
-        response = self.client.get(f"/notes/{self.public_note.note_id}/report/")
-
-        self.assertEqual(response.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
-
     def test_reports_are_removed_when_the_note_is_deleted(self):
         self.client.force_authenticate(user=self.reader)
         self.report(self.public_note.note_id, "Spam.")
@@ -156,3 +149,137 @@ class ReportPublicNoteTests(APITestCase):
         response = self.client.get("/notes/public/")
 
         self.assertFalse(response.data["notes"][0]["reported"])
+
+class ReviewAndRemoveReports(APITestCase):
+    """Covers the acceptance criteria for issue #23."""
+
+    def setUp(self):
+        self.note_owner = get_user_model().objects.create_user("note_owner", password="Testing")
+        self.public_user = get_user_model().objects.create_user("public_user", password="Testing")
+        self.public_user2 = get_user_model().objects.create_user("public_user2", password="Testing")
+        self.mod_user = get_user_model().objects.create_user("mod_user", password="Testing", is_staff=True)
+        self.public_note = Note.objects.create(user=self.note_owner, title="Shared", content="For everyone.", is_public=True)
+        self.private_note = Note.objects.create(user=self.note_owner, title="Mine", content="Only for me.")
+
+    def getReport(self, note_id):
+        return self.client.get(f"/notes/{note_id}/report/")
+
+    def listReports(self, note_id):
+        return self.client.get(f"/notes/{note_id}/reports/")
+
+    def removeReport(self, note_id, reporter_id=None):
+        if reporter_id:
+            return self.client.post(f"/notes/{note_id}/removeReport/{reporter_id}")
+
+        return self.client.post(f"/notes/{note_id}/removeReport/")
+
+    def removeReportedNote(self, note_id):
+        return self.client.delete(f"/notes/{note_id}/removeReportedNote/")
+
+    def test_get_report_fail(self):
+        self.client.force_authenticate(user=self.public_user)
+
+        # Failed attempt
+        response = self.getReport(self.public_note.note_id)
+
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertFalse(response.data["success"])
+
+    def test_get_report_success(self):
+        self.client.force_authenticate(user=self.public_user)
+
+        # Successful attempt
+        report = Report.objects.create(reporter=self.public_user, note=self.public_note)
+
+        response = self.getReport(self.public_note.note_id)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(response.data["success"])
+
+    def test_unauthorized_list_reports(self):
+        self.client.force_authenticate(user=self.public_user)
+        report = Report.objects.create(reporter=self.public_user, note=self.public_note)
+
+        response = self.listReports(self.public_note.note_id)
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+        self.assertFalse(response.data["success"])
+
+    def test_authorized_list_reports(self):
+        self.client.force_authenticate(user=self.mod_user)
+
+        # Create report and test
+        report = Report.objects.create(reporter=self.public_user, note=self.public_note)
+
+        response = self.listReports(self.public_note.note_id)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(response.data["success"])
+        self.assertEqual(len(response.data["reports"]), 1)
+
+        # Create secondary report
+        report = Report.objects.create(reporter=self.public_user2, note=self.public_note)
+
+        response = self.listReports(self.public_note.note_id)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(response.data["success"])
+        self.assertEqual(len(response.data["reports"]), 2)
+
+    def test_remove_reported_note(self):
+        self.client.force_authenticate(user=self.mod_user)
+
+        # Create report
+        report = Report.objects.create(reporter=self.public_user, note=self.public_note)
+
+        # Remove the reported note
+        response = self.removeReportedNote(self.public_note.note_id)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(response.data["success"])
+
+        # Ensure successfully removed
+        self.assertIsNone(Note.objects.filter(note_id=self.public_note.note_id).first())
+
+    def test_remove_unauthorized_reported_note(self):
+        self.client.force_authenticate(user=self.public_user2)
+
+        # Create report
+        report = Report.objects.create(reporter=self.public_user, note=self.public_note)
+
+        # Remove the reported note
+        response = self.removeReportedNote(self.public_note.note_id)
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+        self.assertFalse(response.data["success"])
+
+        # Ensure not removed
+        self.assertIsNotNone(Note.objects.filter(note_id=self.public_note.note_id).first())
+
+    def test_remove_own_report(self):
+        self.client.force_authenticate(user=self.public_user)
+        
+        # Create report
+        report = Report.objects.create(reporter=self.public_user, note=self.public_note)
+
+        # Remove the report
+        response = self.removeReport(self.public_note.note_id)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(response.data["success"])
+
+        # Ensure removed
+        self.assertIsNone(Report.objects.filter(note_id=self.public_note.note_id, reporter=self.public_user).first())
+
+    def test_remove_unauthorized_report(self):
+        self.client.force_authenticate(user=self.public_user2)
+        
+        # Create report
+        report = Report.objects.create(reporter=self.public_user, note=self.public_note)
+
+        # Remove the report
+        response = self.removeReport(self.public_note.note_id)
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertFalse(response.data["success"])
+
+        # Remove again with unauthorized request (displays 404 to hide the fact that another user reported it)
+        response = self.removeReport(self.public_note.note_id, self.public_user.id)
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertFalse(response.data["success"])
+
+        # Ensure not removed
+        self.assertIsNotNone(Report.objects.filter(note_id=self.public_note.note_id, reporter=self.public_user).first())
