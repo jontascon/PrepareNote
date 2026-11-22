@@ -121,13 +121,6 @@ class ReportPublicNoteTests(APITestCase):
         self.assertEqual(self.public_note.title, "Shared")
         self.assertTrue(self.public_note.is_public)
 
-    """def test_only_post_is_allowed(self):
-        self.client.force_authenticate(user=self.reader)
-
-        response = self.client.get(f"/notes/{self.public_note.note_id}/report/")
-
-        self.assertEqual(response.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)""" # Commented this section because GET on this endpoint now retrieves the user's report
-
     def test_reports_are_removed_when_the_note_is_deleted(self):
         self.client.force_authenticate(user=self.reader)
         self.report(self.public_note.note_id, "Spam.")
