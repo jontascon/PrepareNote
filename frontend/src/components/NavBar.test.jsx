@@ -49,3 +49,35 @@ test('shows no page buttons when nobody is logged in', () => {
   expect(screen.queryByText('My Notes')).toBeNull();
   expect(screen.queryByText('Public Notes')).toBeNull();
 });
+
+test('shows My Bookmarks when logged in', () => {
+  const user = { id: 2, username: 'ritam', email: 'ritam@example.com', isModerator: false };
+  render(<NavBar user={user} page="my-notes" onChangePage={vi.fn()} onLogout={vi.fn()} />);
+
+  expect(screen.getByRole('button', { name: 'My Bookmarks' })).toBeTruthy();
+});
+
+test('clicking My Bookmarks changes the page', () => {
+  const user = { id: 2, username: 'ritam', email: 'ritam@example.com', isModerator: false };
+  const changePage = vi.fn();
+  render(<NavBar user={user} page="my-notes" onChangePage={changePage} onLogout={vi.fn()} />);
+
+  fireEvent.click(screen.getByRole('button', { name: 'My Bookmarks' }));
+
+  expect(changePage).toHaveBeenCalledWith('bookmarks');
+});
+
+test('shows My Bookmarks as the active page', () => {
+  const user = { id: 2, username: 'ritam', email: 'ritam@example.com', isModerator: false };
+  render(<NavBar user={user} page="bookmarks" onChangePage={vi.fn()} onLogout={vi.fn()} />);
+
+  expect(screen.getByRole('button', { name: 'My Bookmarks' }).getAttribute('aria-current')).toBe('page');
+  expect(screen.getByRole('button', { name: 'My Notes' }).getAttribute('aria-current')).toBeNull();
+  expect(screen.getByRole('button', { name: 'Public Notes' }).getAttribute('aria-current')).toBeNull();
+});
+
+test('does not show My Bookmarks when logged out', () => {
+  render(<NavBar user={null} page="bookmarks" onChangePage={vi.fn()} onLogout={vi.fn()} />);
+
+  expect(screen.queryByRole('button', { name: 'My Bookmarks' })).toBeNull();
+});

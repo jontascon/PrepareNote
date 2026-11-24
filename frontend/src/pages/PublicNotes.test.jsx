@@ -208,3 +208,99 @@ test('the reason box allows at most 500 characters', async () => {
 
   expect(screen.getByLabelText('Why are you reporting this note?').getAttribute('maxLength')).toBe('500');
 });
+
+// Bookmarking public notes (#25)
+
+function bookmarkServer(bookmarkReply = { success: true, bookmarked: true }) {
+  return vi.fn((url, options) => {
+    if (url.includes('/bookmark/')) {
+      return Promise.resolve({
+        ok: bookmarkReply.success,
+        json: () => Promise.resolve(bookmarkReply),
+      });
+    }
+
+    return Promise.resolve({
+      ok: true,
+      json: () => Promise.resolve({ success: true, notes: sharedNotes }),
+    });
+  });
+}
+
+test('each shared note has a Bookmark button', async () => {
+  globalThis.fetch = bookmarkServer();
+
+  render(<PublicNotes user={user} />);
+
+  const buttons = await screen.findAllByRole('button', { name: 'Bookmark' });
+  expect(buttons.length).toBe(2);
+});
+
+test('bookmarks a public note through the API', async () => {
+  globalThis.fetch = bookmarkServer();
+
+  render(<PublicNotes user={user} />);
+
+  const buttons = await screen.findAllByRole('button', { name: 'Bookmark' });
+  fireEvent.click(buttons[0]);
+
+  expect(await screen.findByRole('button', { name: 'Remove Bookmark' })).toBeTruthy();
+
+  const bookmarkCall = fetch.mock.calls.find(
+    (call) => call[0] === '/notes/9/bookmark/'
+  );
+
+  expect(bookmarkCall).toBeTruthy();
+  expect(bookmarkCall[1].method).toBe('POST');
+  expect(bookmarkCall[1].headers.Authorization).toBe('Token abc123');
+});
+
+test('removes an existing bookmark through the API', async () => {
+  const notes = [{ ...sharedNotes[0], bookmarked: true }, sharedNotes[1]];
+
+  globalThis.fetch = vi.fn((url, options) => {
+    if (options && options.method === 'DELETE') {
+      return Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve({ success: true, bookmarked: false }),
+      });
+    }
+
+    return Promise.resolve({
+      ok: true,
+      json: () => Promise.resolve({ success: true, notes }),
+    });
+  });
+
+  render(<PublicNotes user={user} />);
+
+  const removeButton = await screen.findByRole('button', {
+    name: 'Remove Bookmark',
+  });
+  fireEvent.click(removeButton);
+
+  await screen.findAllByRole('button', { name: 'Bookmark' });
+
+  const deleteCall = fetch.mock.calls.find(
+    (call) => call[0] === '/notes/9/bookmark/'
+  );
+
+  expect(deleteCall).toBeTruthy();
+  expect(deleteCall[1].method).toBe('DELETE');
+  expect(deleteCall[1].headers.Authorization).toBe('Token abc123');
+});
+
+test('shows an error when bookmarking fails', async () => {
+  globalThis.fetch = bookmarkServer({
+    success: false,
+    error: 'Could not save bookmark.',
+  });
+
+  render(<PublicNotes user={user} />);
+
+  const buttons = await screen.findAllByRole('button', { name: 'Bookmark' });
+  fireEvent.click(buttons[0]);
+
+  expect(await screen.findByText('Could not save bookmark.')).toBeTruthy();
+  expect(screen.getAllByRole('button', { name: 'Bookmark' }).length).toBe(2);
+});

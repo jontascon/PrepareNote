@@ -8,6 +8,8 @@ function PublicNotes(props) {
   const [reason, setReason] = useState('');
   const [reportError, setReportError] = useState('');
   const [thanksMessage, setThanksMessage] = useState('');
+  const [bookmarkingId, setBookmarkingId] = useState(null);
+  const [bookmarkError, setBookmarkError] = useState('');
 
   const authHeader = 'Token ' + props.user.token;
 
@@ -33,6 +35,38 @@ function PublicNotes(props) {
 
     loadPublicNotes();
   }, [authHeader]);
+
+  async function toggleBookmark(note) {
+    if (bookmarkingId !== null) {
+      return;
+    }
+
+    setBookmarkingId(note.note_id);
+    setBookmarkError('');
+
+    try {
+      const response = await fetch('/notes/' + note.note_id + '/bookmark/', {
+        method: note.bookmarked ? 'DELETE' : 'POST',
+        headers: { Authorization: authHeader },
+      });
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        setNotes((currentNotes) => currentNotes.map((currentNote) => (
+          currentNote.note_id === note.note_id
+            ? { ...currentNote, bookmarked: data.bookmarked }
+            : currentNote
+        )));
+      } else {
+        setBookmarkError(data.error || 'Could not update bookmark.');
+      }
+    } catch (error) {
+      console.log(error);
+      setBookmarkError('Could not connect to the server. Please try again later.');
+    } finally {
+      setBookmarkingId(null);
+    }
+  }
 
   function handleReasonChange(event) {
     setReason(event.target.value);
@@ -146,6 +180,7 @@ function PublicNotes(props) {
       <p className="text-muted">Notes that other students have shared.</p>
 
       <p className="text-danger">{errorMessage}</p>
+      <p className="text-danger">{bookmarkError}</p>
       <p className="text-success">{thanksMessage}</p>
 
       <p>{message}</p>
@@ -157,6 +192,16 @@ function PublicNotes(props) {
             {showTopic(note)}
             <p className="small mb-2">{'Shared by ' + note.username}</p>
             <p className="card-text note-text">{note.content}</p>
+            <button
+              type="button"
+              className="btn btn-sm btn-outline-primary me-2"
+              onClick={() => toggleBookmark(note)}
+              disabled={bookmarkingId !== null}
+            >
+              {bookmarkingId === note.note_id
+                ? 'Saving...'
+                : note.bookmarked ? 'Remove Bookmark' : 'Bookmark'}
+            </button>
             {showReport(note)}
           </div>
         </div>
