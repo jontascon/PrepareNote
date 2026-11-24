@@ -144,3 +144,78 @@ test('asks to log in again if the saved login has no token', () => {
 
   expect(screen.getByRole('heading', { name: 'Log In' })).toBeTruthy();
 });
+
+test('asks to log in again if the saved login has a bad token', () => {
+  localStorage.setItem('user', JSON.stringify({ id: 1, username: 'ritam', email: 'ritam@example.com', token: 'abc"; alert(1)' }));
+
+  render(<App />);
+
+  expect(screen.getByRole('heading', { name: 'Log In' })).toBeTruthy();
+});
+
+test('asks to log in again if the saved login is broken', () => {
+  localStorage.setItem('user', '{not json');
+
+  render(<App />);
+
+  expect(screen.getByRole('heading', { name: 'Log In' })).toBeTruthy();
+});
+
+test('only saves the expected login fields in the browser', async () => {
+  globalThis.fetch = vi.fn((url) => {
+    if (url === '/getUser/') {
+      return Promise.resolve({
+        json: () => Promise.resolve({ success: true, id: 1, username: 'ritam', email: 'ritam@example.com', is_moderator: false, token: 'abc123', extra: 'not needed' }),
+      });
+    }
+    return fakeServer(url);
+  });
+  render(<App />);
+  logInAsRitam();
+
+  expect(await screen.findByRole('heading', { name: 'New Note' })).toBeTruthy();
+  const saved = JSON.parse(localStorage.getItem('user'));
+  expect(saved).toEqual({ id: 1, username: 'ritam', email: 'ritam@example.com', isModerator: false, token: 'abc123' });
+});
+
+test('does not log in if the server sends a bad token', async () => {
+  globalThis.fetch = vi.fn((url) => {
+    if (url === '/getUser/') {
+      return Promise.resolve({
+        json: () => Promise.resolve({ success: true, id: 1, username: 'ritam', email: 'ritam@example.com', is_moderator: false, token: '../../logout' }),
+      });
+    }
+    return fakeServer(url);
+  });
+  render(<App />);
+  logInAsRitam();
+
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  expect(localStorage.getItem('user')).toBe(null);
+  expect(screen.getByRole('heading', { name: 'Log In' })).toBeTruthy();
+});
+
+test('changing the username on the profile page updates the navbar and the saved login', async () => {
+  globalThis.fetch = vi.fn((url, options) => {
+    if (url === '/profile/') {
+      let profile = { id: 1, username: 'ritam', email: 'ritam@example.com', is_moderator: false, date_joined: '2026-10-20', note_count: 0, public_note_count: 0 };
+      if (options && options.method === 'PUT') {
+        profile = { ...profile, username: 'ritam_r' };
+      }
+      return Promise.resolve({ json: () => Promise.resolve({ success: true, profile: profile }) });
+    }
+    return fakeServer(url);
+  });
+  render(<App />);
+  logInAsRitam();
+  expect(await screen.findByRole('heading', { name: 'New Note' })).toBeTruthy();
+
+  fireEvent.click(screen.getByRole('button', { name: 'Profile' }));
+  expect(await screen.findByText('Member since 2026-10-20')).toBeTruthy();
+  fireEvent.change(screen.getByLabelText('Username'), { target: { value: 'ritam_r' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Save Profile' }));
+
+  expect(await screen.findByText('Logged in as ritam_r')).toBeTruthy();
+  expect(JSON.parse(localStorage.getItem('user')).username).toBe('ritam_r');
+  expect(JSON.parse(localStorage.getItem('user')).token).toBe('abc123');
+});

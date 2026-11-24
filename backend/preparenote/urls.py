@@ -20,12 +20,15 @@ from django.urls import path
 from preparenote.quickstart import views
 from preparenote.exams import views as exam_views
 from preparenote.reports import views as report_views
+from preparenote.accounts import views as account_views
 
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("createUser/", views.createUser, name="createUser"),
     path("getUser/", views.getUser, name="getUser"),
     path("logout/", views.logoutUser, name="logout"),
+    path("profile/", account_views.profile, name="profile"),
+    path("profile/password/", account_views.changePassword, name="changePassword"),
 
     path("notes/", views.notes, name="notes"),
     path("notes/public/", views.publicNotes, name="publicNotes"),
