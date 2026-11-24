@@ -28,7 +28,7 @@ function Bookmarks({ user }) {
       }
     }
 
-    loadBookmarks();
+    void loadBookmarks();
   }, [user.token]);
 
   async function removeBookmark(noteId) {
