@@ -1,5 +1,6 @@
 from django.contrib.auth.models import User
 from django.contrib.auth import authenticate
+from django.db.models import Q
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
@@ -112,10 +113,51 @@ def checkNoteData(title, content, study_status):
         return "Study status must be learning, reviewing or confident."
     return None
 
+# Search and filters for the notes lists (issue #21).
+# Every filter is optional, so with no filters you get the whole list.
+def filterNotes(note_list, params):
+    search = (params.get('search') or '').strip()
+    if len(search) > 200:
+        return None, "Search must be 200 characters or fewer."
+    if search != '':
+        note_list = note_list.filter(Q(title__icontains=search) | Q(content__icontains=search))
+
+    study_status = params.get('study_status') or ''
+    if study_status != '':
+        if study_status not in Note.StudyStatus.values:
+            return None, "Study status must be learning, reviewing or confident."
+        note_list = note_list.filter(study_status=study_status)
+
+    exam_id = params.get('exam_id') or ''
+    if exam_id != '':
+        if not exam_id.isdigit():
+            return None, "Exam must be a number."
+        note_list = note_list.filter(topic__section__exam_id=int(exam_id))
+
+    topic_id = params.get('topic_id') or ''
+    if topic_id != '':
+        if not topic_id.isdigit():
+            return None, "Topic must be a number."
+        note_list = note_list.filter(topic_id=int(topic_id))
+
+    return note_list, None
+
 @api_view(['GET', 'POST'])
 def notes(request):
     if request.method == 'GET':
         user_notes = Note.objects.filter(user=request.user).order_by('note_id')
+        user_notes, error = filterNotes(user_notes, request.query_params)
+        if error is not None:
+            return Response({"success": False, "error": error}, status=status.HTTP_400_BAD_REQUEST)
+
+        visibility = request.query_params.get('visibility') or ''
+        if visibility == 'public':
+            user_notes = user_notes.filter(is_public=True)
+        elif visibility == 'private':
+            user_notes = user_notes.filter(is_public=False)
+        elif visibility != '':
+            return Response({"success": False, "error": "Visibility must be public or private."}, status=status.HTTP_400_BAD_REQUEST)
+
         note_list = []
         for note in user_notes:
             note_list.append(noteToDict(note))
@@ -158,6 +200,10 @@ def publicNotes(request):
         .select_related('user', 'topic__section__exam')
         .order_by('-note_id')
     )
+    shared_notes, error = filterNotes(shared_notes, request.query_params)
+    if error is not None:
+        return Response({"success": False, "error": error}, status=status.HTTP_400_BAD_REQUEST)
+
     reported_ids = set(Report.objects.filter(reporter=request.user).values_list('note_id', flat=True))
     note_list = []
     for note in shared_notes:

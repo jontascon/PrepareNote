@@ -6,6 +6,47 @@ const studyStatuses = [
   { value: 'confident', label: 'Confident', badge: 'bg-success' },
 ];
 
+function toFilterId(value) {
+  const id = Number(value);
+  if (value !== '' && Number.isInteger(id) && id > 0) {
+    return id;
+  }
+  return null;
+}
+
+function notesUrl(search, studyStatus, examId, topicId, visibility) {
+  const parts = [];
+
+  if (search.trim() !== '') {
+    parts.push('search=' + encodeURIComponent(search.trim()));
+  }
+
+  for (let i = 0; i < studyStatuses.length; i++) {
+    if (studyStatuses[i].value === studyStatus) {
+      parts.push('study_status=' + encodeURIComponent(studyStatus));
+    }
+  }
+
+  const exam = toFilterId(examId);
+  if (exam !== null) {
+    parts.push('exam_id=' + exam);
+  }
+
+  const topic = toFilterId(topicId);
+  if (topic !== null) {
+    parts.push('topic_id=' + topic);
+  }
+
+  if (visibility === 'public' || visibility === 'private') {
+    parts.push('visibility=' + visibility);
+  }
+
+  if (parts.length === 0) {
+    return '/notes/';
+  }
+  return '/notes/?' + parts.join('&');
+}
+
 function findStudyStatus(value) {
   for (let i = 0; i < studyStatuses.length; i++) {
     if (studyStatuses[i].value === value) {
@@ -13,6 +54,14 @@ function findStudyStatus(value) {
     }
   }
   return studyStatuses[0];
+}
+
+function toNoteId(value) {
+  const id = Number(value);
+  if (Number.isInteger(id) && id > 0) {
+    return id;
+  }
+  return null;
 }
 
 function Notes(props) {
@@ -24,30 +73,52 @@ function Notes(props) {
   const [topicId, setTopicId] = useState('');
   const [topics, setTopics] = useState([]);
   const [search, setSearch] = useState('');
+  const [filterExam, setFilterExam] = useState('');
+  const [filterTopic, setFilterTopic] = useState('');
+  const [filterStatus, setFilterStatus] = useState('');
+  const [filterVisibility, setFilterVisibility] = useState('');
+  const [exams, setExams] = useState([]);
   const [editingId, setEditingId] = useState(null);
   const [errorMessage, setErrorMessage] = useState('');
 
   const authHeader = 'Token ' + props.user.token;
 
   useEffect(() => {
+    let ignore = false;
+
     async function loadNotes() {
       try {
-        const response = await fetch('/notes/', {
+        const url = notesUrl(search, filterStatus, filterExam, filterTopic, filterVisibility);
+        const response = await fetch(url, {
           headers: { Authorization: authHeader },
         });
         const data = await response.json();
 
+        if (ignore) {
+          return;
+        }
         if (data.success) {
           setNotes(data.notes);
+          setErrorMessage('');
         } else {
           setErrorMessage('Could not load your notes.');
         }
       } catch (error) {
         console.log(error);
-        setErrorMessage('Could not connect to the server. Please try again later.');
+        if (!ignore) {
+          setErrorMessage('Could not connect to the server. Please try again later.');
+        }
       }
     }
 
+    loadNotes();
+
+    return () => {
+      ignore = true;
+    };
+  }, [authHeader, search, filterStatus, filterExam, filterTopic, filterVisibility]);
+
+  useEffect(() => {
     async function loadTopics() {
       try {
         const response = await fetch('/exams/', {
@@ -57,27 +128,30 @@ function Notes(props) {
 
         if (data.success) {
           const topicList = [];
+          const examList = [];
           for (let i = 0; i < data.exams.length; i++) {
             const exam = data.exams[i];
+            examList.push({ id: exam.exam_id, name: exam.name });
             for (let j = 0; j < exam.sections.length; j++) {
               const section = exam.sections[j];
               for (let k = 0; k < section.topics.length; k++) {
                 const topic = section.topics[k];
                 topicList.push({
                   id: topic.topic_id,
+                  examId: exam.exam_id,
                   name: exam.name + ' > ' + section.name + ' > ' + topic.name,
                 });
               }
             }
           }
           setTopics(topicList);
+          setExams(examList);
         }
       } catch (error) {
         console.log(error);
       }
     }
 
-    loadNotes();
     loadTopics();
   }, [authHeader]);
 
@@ -105,6 +179,31 @@ function Notes(props) {
     setSearch(event.target.value);
   }
 
+  function handleFilterExamChange(event) {
+    setFilterExam(event.target.value);
+    setFilterTopic('');
+  }
+
+  function handleFilterTopicChange(event) {
+    setFilterTopic(event.target.value);
+  }
+
+  function handleFilterStatusChange(event) {
+    setFilterStatus(event.target.value);
+  }
+
+  function handleFilterVisibilityChange(event) {
+    setFilterVisibility(event.target.value);
+  }
+
+  function clearFilters() {
+    setSearch('');
+    setFilterExam('');
+    setFilterTopic('');
+    setFilterStatus('');
+    setFilterVisibility('');
+  }
+
   async function handleSubmit(event) {
     event.preventDefault();
 
@@ -121,7 +220,12 @@ function Notes(props) {
     let url = '/notes/';
     let method = 'POST';
     if (editingId !== null) {
-      url = '/notes/' + editingId + '/';
+      const noteId = toNoteId(editingId);
+      if (noteId === null) {
+        setErrorMessage('Could not save the note.');
+        return;
+      }
+      url = '/notes/' + encodeURIComponent(noteId) + '/';
       method = 'PUT';
     }
 
@@ -212,8 +316,14 @@ function Notes(props) {
   }
 
   async function deleteNote(id) {
+    const noteId = toNoteId(id);
+    if (noteId === null) {
+      setErrorMessage('Could not delete the note.');
+      return;
+    }
+
     try {
-      const response = await fetch('/notes/' + id + '/', {
+      const response = await fetch('/notes/' + encodeURIComponent(noteId) + '/', {
         method: 'DELETE',
         headers: { Authorization: authHeader },
       });
@@ -240,12 +350,25 @@ function Notes(props) {
     }
   }
 
-  const shownNotes = [];
-  for (let i = 0; i < notes.length; i++) {
-    const noteTitle = notes[i].title.toLowerCase();
-    if (noteTitle.includes(search.toLowerCase())) {
-      shownNotes.push(notes[i]);
+  let filtering = false;
+  if (search.trim() !== '' || filterExam !== '' || filterTopic !== '' || filterStatus !== '' || filterVisibility !== '') {
+    filtering = true;
+  }
+
+  const filterTopics = [];
+  for (let i = 0; i < topics.length; i++) {
+    if (filterExam === '' || String(topics[i].examId) === filterExam) {
+      filterTopics.push(topics[i]);
     }
+  }
+
+  let clearButton = null;
+  if (filtering) {
+    clearButton = (
+      <button type="button" className="btn btn-sm btn-outline-secondary mt-2" onClick={clearFilters}>
+        Clear filters
+      </button>
+    );
   }
 
   const statusCounts = { learning: 0, reviewing: 0, confident: 0 };
@@ -267,9 +390,11 @@ function Notes(props) {
 
   let message = '';
   if (notes.length === 0) {
-    message = 'No notes yet. Write your first one!';
-  } else if (shownNotes.length === 0) {
-    message = 'No notes match your search.';
+    if (filtering) {
+      message = 'No notes match your search.';
+    } else {
+      message = 'No notes yet. Write your first one!';
+    }
   }
 
   let formHeading = 'New Note';
@@ -365,13 +490,71 @@ function Notes(props) {
         <div className="col-md-7">
           <h2 className="mb-3">My Notes</h2>
 
-          <input
-            type="text"
-            className="form-control mb-3"
-            placeholder="Search notes by title..."
-            value={search}
-            onChange={handleSearchChange}
-          />
+          <div className="mb-3">
+            <input
+              type="text"
+              className="form-control mb-2"
+              placeholder="Search notes by title or text..."
+              aria-label="Search notes"
+              maxLength="200"
+              value={search}
+              onChange={handleSearchChange}
+            />
+            <div className="row g-2">
+              <div className="col-sm-6 col-xl-3">
+                <select
+                  className="form-select form-select-sm"
+                  aria-label="Filter by exam"
+                  value={filterExam}
+                  onChange={handleFilterExamChange}
+                >
+                  <option value="">All exams</option>
+                  {exams.map((exam) => (
+                    <option key={exam.id} value={exam.id}>{exam.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="col-sm-6 col-xl-3">
+                <select
+                  className="form-select form-select-sm"
+                  aria-label="Filter by topic"
+                  value={filterTopic}
+                  onChange={handleFilterTopicChange}
+                >
+                  <option value="">All topics</option>
+                  {filterTopics.map((topic) => (
+                    <option key={topic.id} value={topic.id}>{topic.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="col-sm-6 col-xl-3">
+                <select
+                  className="form-select form-select-sm"
+                  aria-label="Filter by study status"
+                  value={filterStatus}
+                  onChange={handleFilterStatusChange}
+                >
+                  <option value="">All statuses</option>
+                  {studyStatuses.map((option) => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="col-sm-6 col-xl-3">
+                <select
+                  className="form-select form-select-sm"
+                  aria-label="Filter by public or private"
+                  value={filterVisibility}
+                  onChange={handleFilterVisibilityChange}
+                >
+                  <option value="">Public and private</option>
+                  <option value="public">Public only</option>
+                  <option value="private">Private only</option>
+                </select>
+              </div>
+            </div>
+            {clearButton}
+          </div>
 
           <p className="text-danger">{errorMessage}</p>
 
@@ -379,7 +562,7 @@ function Notes(props) {
 
           <p>{message}</p>
 
-          {shownNotes.map((note) => (
+          {notes.map((note) => (
             <div className="card mb-3" key={note.note_id}>
               <div className="card-body">
                 <h5 className="card-title">{note.title}</h5>

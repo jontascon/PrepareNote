@@ -8,6 +8,7 @@ function PublicNotes(props) {
   const [reason, setReason] = useState('');
   const [reportError, setReportError] = useState('');
   const [thanksMessage, setThanksMessage] = useState('');
+  const [search, setSearch] = useState('');
 
   const authHeader = 'Token ' + props.user.token;
 
@@ -33,6 +34,10 @@ function PublicNotes(props) {
 
     loadPublicNotes();
   }, [authHeader]);
+
+  function handleSearchChange(event) {
+    setSearch(event.target.value);
+  }
 
   function handleReasonChange(event) {
     setReason(event.target.value);
@@ -133,11 +138,22 @@ function PublicNotes(props) {
     );
   }
 
+  const searchText = search.trim().toLowerCase();
+  const shownNotes = [];
+  for (let i = 0; i < notes.length; i++) {
+    const noteText = (notes[i].title + ' ' + notes[i].content).toLowerCase();
+    if (searchText === '' || noteText.includes(searchText)) {
+      shownNotes.push(notes[i]);
+    }
+  }
+
   let message = '';
   if (loading) {
     message = 'Loading public notes...';
   } else if (errorMessage === '' && notes.length === 0) {
     message = 'No public notes yet. Check back later!';
+  } else if (errorMessage === '' && shownNotes.length === 0) {
+    message = 'No public notes match your search.';
   }
 
   return (
@@ -145,12 +161,22 @@ function PublicNotes(props) {
       <h2 className="mb-1">Public Notes</h2>
       <p className="text-muted">Notes that other students have shared.</p>
 
+      <input
+        type="text"
+        className="form-control mb-3"
+        placeholder="Search public notes by title or text..."
+        aria-label="Search public notes"
+        maxLength="200"
+        value={search}
+        onChange={handleSearchChange}
+      />
+
       <p className="text-danger">{errorMessage}</p>
       <p className="text-success">{thanksMessage}</p>
 
       <p>{message}</p>
 
-      {notes.map((note) => (
+      {shownNotes.map((note) => (
         <div className="card mb-3" key={note.note_id}>
           <div className="card-body">
             <h5 className="card-title">{note.title}</h5>
