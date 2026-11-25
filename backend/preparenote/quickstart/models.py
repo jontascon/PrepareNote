@@ -72,3 +72,29 @@ class Bookmark(models.Model):
 
     def __str__(self):
         return f"{self.user.username} bookmarked note {self.note.note_id}"
+
+
+# Track which contributors each user has marked as favorites.
+class FavoriteContributor(models.Model):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="favorite_contributors",
+    )
+    contributor = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="favorited_by",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "contributor"],
+                name="unique_user_favorite_contributor",
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.user.username} favorited {self.contributor.username}"

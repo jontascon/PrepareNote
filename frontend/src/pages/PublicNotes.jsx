@@ -10,6 +10,9 @@ function PublicNotes(props) {
   const [thanksMessage, setThanksMessage] = useState('');
   const [bookmarkingId, setBookmarkingId] = useState(null);
   const [bookmarkError, setBookmarkError] = useState('');
+  const [favoriteContributorIds, setFavoriteContributorIds] = useState([]);
+  const [favoritingId, setFavoritingId] = useState(null);
+  const [favoriteError, setFavoriteError] = useState('');
 
   const authHeader = 'Token ' + props.user.token;
 
@@ -33,7 +36,28 @@ function PublicNotes(props) {
       setLoading(false);
     }
 
-    loadPublicNotes();
+    async function loadFavoriteContributors() {
+      try {
+        const response = await fetch('/contributors/favorites/', {
+          headers: { Authorization: authHeader },
+        });
+        const data = await response.json();
+
+        if (response.ok && data.success) {
+          setFavoriteContributorIds(
+            data.contributors.map((contributor) => contributor.id)
+          );
+        } else {
+          setFavoriteError('Could not load favorite contributors.');
+        }
+      } catch (error) {
+        console.log(error);
+        setFavoriteError('Could not load favorite contributors.');
+      }
+    }
+
+    void loadPublicNotes();
+    void loadFavoriteContributors();
   }, [authHeader]);
 
   async function toggleBookmark(note) {
@@ -65,6 +89,40 @@ function PublicNotes(props) {
       setBookmarkError('Could not connect to the server. Please try again later.');
     } finally {
       setBookmarkingId(null);
+    }
+  }
+
+  async function toggleFavoriteContributor(userId) {
+    if (favoritingId !== null) {
+      return;
+    }
+
+    const isFavorite = favoriteContributorIds.includes(userId);
+
+    setFavoritingId(userId);
+    setFavoriteError('');
+
+    try {
+      const response = await fetch(`/contributors/${userId}/favorite/`, {
+        method: isFavorite ? 'DELETE' : 'POST',
+        headers: { Authorization: authHeader },
+      });
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        setFavoriteContributorIds((currentIds) => (
+          data.favorited
+            ? [...new Set([...currentIds, userId])]
+            : currentIds.filter((id) => id !== userId)
+        ));
+      } else {
+        setFavoriteError(data.error || 'Could not update favorite contributor.');
+      }
+    } catch (error) {
+      console.log(error);
+      setFavoriteError('Could not connect to the server. Please try again later.');
+    } finally {
+      setFavoritingId(null);
     }
   }
 
@@ -181,6 +239,7 @@ function PublicNotes(props) {
 
       <p className="text-danger">{errorMessage}</p>
       <p className="text-danger">{bookmarkError}</p>
+      <p className="text-danger">{favoriteError}</p>
       <p className="text-success">{thanksMessage}</p>
 
       <p>{message}</p>
@@ -191,6 +250,22 @@ function PublicNotes(props) {
             <h5 className="card-title">{note.title}</h5>
             {showTopic(note)}
             <p className="small mb-2">{'Shared by ' + note.username}</p>
+            <button
+              type="button"
+              className={`btn btn-sm mb-2 ${
+                favoriteContributorIds.includes(note.user_id)
+                  ? 'btn-success'
+                  : 'btn-outline-success'
+              }`}
+              onClick={() => toggleFavoriteContributor(note.user_id)}
+              disabled={favoritingId !== null}
+            >
+              {favoritingId === note.user_id
+                ? 'Updating...'
+                : favoriteContributorIds.includes(note.user_id)
+                  ? 'Remove Favorite Contributor'
+                  : 'Favorite Contributor'}
+            </button>
             <p className="card-text note-text">{note.content}</p>
             <button
               type="button"
