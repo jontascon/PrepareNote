@@ -26,15 +26,15 @@ urlpatterns = [
     path("createUser/", views.createUser, name="createUser"),
     path("getUser/", views.getUser, name="getUser"),
     path("logout/", views.logoutUser, name="logout"),
-
     path("notes/", views.notes, name="notes"),
     path("notes/public/", views.publicNotes, name="publicNotes"),
+    path("bookmarks/", views.bookmarks, name="bookmarks"),
+    path("notes/<int:note_id>/bookmark/", views.bookmarkNote, name="bookmarkNote"),
     path("notes/<int:note_id>/", views.noteDetail, name="noteDetail"),
     path("notes/<int:note_id>/report/", report_views.reportNote, name="reportNote"),
     path("notes/<int:note_id>/reports/", report_views.listReports, name="listReports"),
     path("notes/<int:note_id>/removeReport/<int:reporter_id>", report_views.removeReport, name="removeReport"),
     path("notes/<int:note_id>/removeReport/", report_views.removeReport, name="removeReport"),
     path("notes/<int:note_id>/removeReportedNote/", report_views.removeReportedNote, name="removeReportedNote"),
-
     path("exams/", exam_views.exams, name="exams")
 ]

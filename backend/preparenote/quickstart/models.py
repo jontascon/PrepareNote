@@ -46,3 +46,29 @@ class Note(models.Model):
         if self.topic is None:
             return f"Note {self.note_id}"
         return f"Note {self.note_id} in {self.topic}"
+
+
+# Track which public notes each user has bookmarked.
+class Bookmark(models.Model):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="bookmarks",
+    )
+    note = models.ForeignKey(
+        Note,
+        on_delete=models.CASCADE,
+        related_name="bookmarks",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "note"],
+                name="unique_user_note_bookmark",
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.user.username} bookmarked note {self.note.note_id}"

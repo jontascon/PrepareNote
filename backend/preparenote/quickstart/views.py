@@ -2,10 +2,10 @@ from django.contrib.auth.models import User
 from django.contrib.auth import authenticate
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.authtoken.models import Token
-from preparenote.quickstart.models import Note
+from preparenote.quickstart.models import Note, Bookmark
 from preparenote.exams.models import Topic
 from preparenote.reports.models import Report
 
@@ -159,11 +159,13 @@ def publicNotes(request):
         .order_by('-note_id')
     )
     reported_ids = set(Report.objects.filter(reporter=request.user).values_list('note_id', flat=True))
+    bookmarked_ids = set(Bookmark.objects.filter(user=request.user).values_list('note_id', flat=True))
     note_list = []
     for note in shared_notes:
         note_data = noteToDict(note)
         note_data["topic_name"] = topicName(note.topic)
         note_data["reported"] = note.note_id in reported_ids
+        note_data["bookmarked"] = note.note_id in bookmarked_ids
         note_list.append(note_data)
     return Response({"success": True, "notes": note_list})
 
@@ -209,3 +211,58 @@ def noteDetail(request, note_id):
 
     note.delete()
     return Response({"success": True})
+
+
+# Add or remove bookmarks for public notes.
+@api_view(['POST', 'DELETE'])
+@permission_classes([IsAuthenticated])
+def bookmarkNote(request, note_id):
+    note = Note.objects.filter(note_id=note_id).first()
+    if note is None:
+        return Response(
+            {"success": False, "error": "Note not found."},
+            status=status.HTTP_404_NOT_FOUND
+        )
+
+    if request.method == 'POST':
+        if not note.is_public or note.user == request.user:
+            return Response(
+                {"success": False, "error": "Public note not found."},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        bookmark, created = Bookmark.objects.get_or_create(
+            user=request.user,
+            note=note
+        )
+        return Response(
+            {"success": True, "bookmarked": True},
+            status=status.HTTP_201_CREATED if created else status.HTTP_200_OK
+        )
+
+    Bookmark.objects.filter(user=request.user, note=note).delete()
+    return Response({"success": True, "bookmarked": False})
+
+
+# List public notes bookmarked by current user.
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def bookmarks(request):
+    saved_notes = (
+        Note.objects.filter(
+            bookmarks__user=request.user,
+            is_public=True
+        )
+        .exclude(user=request.user)
+        .select_related('user', 'topic__section__exam')
+        .order_by('-bookmarks__created_at')
+    )
+
+    note_list = []
+    for note in saved_notes:
+        note_data = noteToDict(note)
+        note_data["topic_name"] = topicName(note.topic)
+        note_data["bookmarked"] = True
+        note_list.append(note_data)
+
+    return Response({"success": True, "notes": note_list})
