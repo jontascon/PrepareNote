@@ -2,10 +2,10 @@ from django.contrib.auth.models import User
 from django.contrib.auth import authenticate
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.authtoken.models import Token
-from preparenote.quickstart.models import Note
+from preparenote.quickstart.models import Note, Bookmark, FavoriteContributor
 from preparenote.exams.models import Topic
 from preparenote.reports.models import Report
 
@@ -86,7 +86,9 @@ def noteToDict(note):
         "study_status": note.study_status,
         "is_public": note.is_public,
         "username": note.user.username,
+        "user_id": note.user.id,
         "topic_id": note.topic_id,
+        "source": note.source
     }
 
 def readIsPublic(value):
@@ -123,6 +125,7 @@ def notes(request):
     title = request.data.get('title') or ''
     content = request.data.get('content') or ''
     study_status = request.data.get('study_status') or Note.StudyStatus.LEARNING
+    source = request.data.get('source') or ''
     error = checkNoteData(title, content, study_status)
     if error is not None:
         return Response({"success": False, "error": error}, status=status.HTTP_400_BAD_REQUEST)
@@ -142,6 +145,7 @@ def notes(request):
         study_status=study_status,
         is_public=is_public,
         topic=topic,
+        source=source
     )
     return Response({"success": True, "note": noteToDict(note)}, status=status.HTTP_201_CREATED)
 
@@ -156,11 +160,13 @@ def publicNotes(request):
         .order_by('-note_id')
     )
     reported_ids = set(Report.objects.filter(reporter=request.user).values_list('note_id', flat=True))
+    bookmarked_ids = set(Bookmark.objects.filter(user=request.user).values_list('note_id', flat=True))
     note_list = []
     for note in shared_notes:
         note_data = noteToDict(note)
         note_data["topic_name"] = topicName(note.topic)
         note_data["reported"] = note.note_id in reported_ids
+        note_data["bookmarked"] = note.note_id in bookmarked_ids
         note_list.append(note_data)
     return Response({"success": True, "notes": note_list})
 
@@ -180,6 +186,7 @@ def noteDetail(request, note_id):
         title = request.data.get('title') or ''
         content = request.data.get('content') or ''
         study_status = request.data.get('study_status') or note.study_status
+        source = request.data.get('source') if "source" in request.data.keys() else note.source
         error = checkNoteData(title, content, study_status)
         if error is not None:
             return Response({"success": False, "error": error}, status=status.HTTP_400_BAD_REQUEST)
@@ -196,6 +203,7 @@ def noteDetail(request, note_id):
         note.title = title
         note.content = content
         note.study_status = study_status
+        note.source = source
         if 'is_public' in request.data:
             note.is_public = readIsPublic(request.data.get('is_public'))
         note.topic = topic
@@ -204,3 +212,158 @@ def noteDetail(request, note_id):
 
     note.delete()
     return Response({"success": True})
+
+
+# Add or remove bookmarks for public notes.
+@api_view(['POST', 'DELETE'])
+@permission_classes([IsAuthenticated])
+def bookmarkNote(request, note_id):
+    note = Note.objects.filter(note_id=note_id).first()
+    if note is None:
+        return Response(
+            {"success": False, "error": "Note not found."},
+            status=status.HTTP_404_NOT_FOUND
+        )
+
+    if request.method == 'POST':
+        if not note.is_public or note.user == request.user:
+            return Response(
+                {"success": False, "error": "Public note not found."},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        bookmark, created = Bookmark.objects.get_or_create(
+            user=request.user,
+            note=note
+        )
+        return Response(
+            {"success": True, "bookmarked": True},
+            status=status.HTTP_201_CREATED if created else status.HTTP_200_OK
+        )
+
+    Bookmark.objects.filter(user=request.user, note=note).delete()
+    return Response({"success": True, "bookmarked": False})
+
+
+# List public notes bookmarked by current user.
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def bookmarks(request):
+    saved_notes = (
+        Note.objects.filter(
+            bookmarks__user=request.user,
+            is_public=True
+        )
+        .exclude(user=request.user)
+        .select_related('user', 'topic__section__exam')
+        .order_by('-bookmarks__created_at')
+    )
+
+    note_list = []
+    for note in saved_notes:
+        note_data = noteToDict(note)
+        note_data["topic_name"] = topicName(note.topic)
+        note_data["bookmarked"] = True
+        note_list.append(note_data)
+
+    return Response({"success": True, "notes": note_list})
+
+
+# List the current user's favorite contributors.
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def favoriteContributors(request):
+    favorites = (
+        FavoriteContributor.objects.filter(user=request.user)
+        .select_related('contributor')
+        .order_by('-created_at')
+    )
+
+    contributors = []
+    for favorite in favorites:
+        contributor = favorite.contributor
+        contributors.append({
+            "id": contributor.id,
+            "username": contributor.username,
+        })
+
+    return Response({
+        "success": True,
+        "contributors": contributors
+    })
+
+
+# Add or remove a favorite contributor.
+@api_view(['POST', 'DELETE'])
+@permission_classes([IsAuthenticated])
+def favoriteContributor(request, user_id):
+    contributor = User.objects.filter(id=user_id).first()
+
+    if contributor is None:
+        return Response(
+            {"success": False, "error": "Contributor not found."},
+            status=status.HTTP_404_NOT_FOUND
+        )
+
+    if contributor == request.user:
+        return Response(
+            {"success": False, "error": "You cannot favorite yourself."},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    if request.method == 'POST':
+        favorite, created = FavoriteContributor.objects.get_or_create(
+            user=request.user,
+            contributor=contributor
+        )
+        return Response(
+            {"success": True, "favorited": True},
+            status=status.HTTP_201_CREATED if created else status.HTTP_200_OK
+        )
+
+    FavoriteContributor.objects.filter(
+        user=request.user,
+        contributor=contributor
+    ).delete()
+
+    return Response({"success": True, "favorited": False})
+
+
+# Retrieve public notes belonging to a specific contributor.
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def contributorNotes(request, user_id):
+    contributor = User.objects.filter(id=user_id).first()
+
+    if contributor is None:
+        return Response(
+            {"success": False, "error": "Contributor not found."},
+            status=status.HTTP_404_NOT_FOUND
+        )
+
+    shared_notes = (
+        Note.objects.filter(user=contributor, is_public=True)
+        .select_related('user', 'topic__section__exam')
+        .order_by('-note_id')
+    )
+
+    bookmarked_ids = set(
+        Bookmark.objects.filter(user=request.user)
+        .values_list('note_id', flat=True)
+    )
+
+    note_list = []
+    for note in shared_notes:
+        note_data = noteToDict(note)
+        note_data["topic_name"] = topicName(note.topic)
+        note_data["bookmarked"] = note.note_id in bookmarked_ids
+        note_list.append(note_data)
+
+    return Response({
+        "success": True,
+        "contributor": {
+            "id": contributor.id,
+            "username": contributor.username
+        },
+        "notes": note_list
+    })

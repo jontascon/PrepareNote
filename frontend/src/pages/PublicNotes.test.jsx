@@ -1,4 +1,4 @@
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import PublicNotes from './PublicNotes.jsx';
 
 const user = { id: 1, username: 'jessy', email: 'jessy@example.com', isModerator: false, token: 'abc123' };
@@ -11,6 +11,7 @@ const sharedNotes = [
     study_status: 'confident',
     is_public: true,
     username: 'tim',
+    user_id: 2,
     topic_id: 3,
     topic_name: 'AWS > Networking > VPC Peering',
   },
@@ -21,6 +22,7 @@ const sharedNotes = [
     study_status: 'learning',
     is_public: true,
     username: 'ritam',
+    user_id: 3,
     topic_id: null,
     topic_name: null,
   },
@@ -241,4 +243,192 @@ test('does not send a report when the note id is not a number', async () => {
 
   expect(await screen.findByText('Could not report the note.')).toBeTruthy();
   expect(findPost()).toBeNull();
+});
+
+// Bookmarking public notes (#25)
+
+function bookmarkServer(bookmarkReply = { success: true, bookmarked: true }) {
+  return vi.fn((url, options) => {
+    if (url === '/contributors/favorites/') {
+      return Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve({
+          success: true,
+          contributors: [],
+        }),
+      });
+    }
+    if (url === '/contributors/2/favorite/' || url === '/contributors/3/favorite/') {
+      return Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve({
+          success: true,
+          favorited: options?.method === 'POST',
+        }),
+      });
+    }
+    if (url.includes('/bookmark/')) {
+      return Promise.resolve({
+        ok: bookmarkReply.success,
+        json: () => Promise.resolve(bookmarkReply),
+      });
+    }
+
+    return Promise.resolve({
+      ok: true,
+      json: () => Promise.resolve({ success: true, notes: sharedNotes }),
+    });
+  });
+}
+
+test('each shared note has a Bookmark button', async () => {
+  globalThis.fetch = bookmarkServer();
+
+  render(<PublicNotes user={user} />);
+
+  const buttons = await screen.findAllByRole('button', { name: 'Bookmark' });
+  expect(buttons.length).toBe(2);
+});
+
+test('bookmarks a public note through the API', async () => {
+  globalThis.fetch = bookmarkServer();
+
+  render(<PublicNotes user={user} />);
+
+  const buttons = await screen.findAllByRole('button', { name: 'Bookmark' });
+  fireEvent.click(buttons[0]);
+
+  expect(await screen.findByRole('button', { name: 'Remove Bookmark' })).toBeTruthy();
+
+  const bookmarkCall = fetch.mock.calls.find(
+    (call) => call[0] === '/notes/9/bookmark/'
+  );
+
+  expect(bookmarkCall).toBeTruthy();
+  expect(bookmarkCall[1].method).toBe('POST');
+  expect(bookmarkCall[1].headers.Authorization).toBe('Token abc123');
+});
+
+test('removes an existing bookmark through the API', async () => {
+  const notes = [{ ...sharedNotes[0], bookmarked: true }, sharedNotes[1]];
+
+  globalThis.fetch = vi.fn((url, options) => {
+    if (url === '/contributors/favorites/') {
+      return Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve({
+          success: true,
+          contributors: [],
+        }),
+      });
+    }
+    if (options && options.method === 'DELETE') {
+      return Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve({ success: true, bookmarked: false }),
+      });
+    }
+
+    return Promise.resolve({
+      ok: true,
+      json: () => Promise.resolve({ success: true, notes }),
+    });
+  });
+
+  render(<PublicNotes user={user} />);
+
+  const removeButton = await screen.findByRole('button', {
+    name: 'Remove Bookmark',
+  });
+  fireEvent.click(removeButton);
+
+  await screen.findAllByRole('button', { name: 'Bookmark' });
+
+  const deleteCall = fetch.mock.calls.find(
+    (call) => call[0] === '/notes/9/bookmark/'
+  );
+
+  expect(deleteCall).toBeTruthy();
+  expect(deleteCall[1].method).toBe('DELETE');
+  expect(deleteCall[1].headers.Authorization).toBe('Token abc123');
+});
+
+test('shows an error when bookmarking fails', async () => {
+  globalThis.fetch = bookmarkServer({
+    success: false,
+    error: 'Could not save bookmark.',
+  });
+
+  render(<PublicNotes user={user} />);
+
+  const buttons = await screen.findAllByRole('button', { name: 'Bookmark' });
+  fireEvent.click(buttons[0]);
+
+  expect(await screen.findByText('Could not save bookmark.')).toBeTruthy();
+  expect(screen.getAllByRole('button', { name: 'Bookmark' }).length).toBe(2);
+});
+
+// Favorite contributors (#26)
+
+test('favorites a contributor through the API', async () => {
+  globalThis.fetch = bookmarkServer();
+
+  render(<PublicNotes user={user} />);
+
+  const buttons = await screen.findAllByRole('button', {
+    name: 'Favorite Contributor',
+  });
+
+  expect(buttons.length).toBe(2);
+
+  fireEvent.click(buttons[0]);
+
+  expect(
+    await screen.findByRole('button', {
+      name: 'Remove Favorite Contributor',
+    })
+  ).toBeTruthy();
+
+  const favoriteCall = fetch.mock.calls.find(
+    (call) => call[0] === '/contributors/2/favorite/'
+  );
+
+  expect(favoriteCall).toBeTruthy();
+  expect(favoriteCall[1].method).toBe('POST');
+  expect(favoriteCall[1].headers.Authorization).toBe('Token abc123');
+});
+
+test('removes a favorite contributor through the API', async () => {
+  globalThis.fetch = bookmarkServer();
+
+  render(<PublicNotes user={user} />);
+
+  const favoriteButtons = await screen.findAllByRole('button', {
+    name: 'Favorite Contributor',
+  });
+
+  fireEvent.click(favoriteButtons[0]);
+
+  const removeButton = await screen.findByRole('button', {
+    name: 'Remove Favorite Contributor',
+  });
+
+  fireEvent.click(removeButton);
+
+  await waitFor(() => {
+    expect(
+      screen.getAllByRole('button', {
+        name: 'Favorite Contributor',
+      })
+    ).toHaveLength(2);
+  });
+
+  const deleteCall = fetch.mock.calls.find(
+    (call) =>
+      call[0] === '/contributors/2/favorite/' &&
+      call[1].method === 'DELETE'
+  );
+
+  expect(deleteCall).toBeTruthy();
+  expect(deleteCall[1].headers.Authorization).toBe('Token abc123');
 });

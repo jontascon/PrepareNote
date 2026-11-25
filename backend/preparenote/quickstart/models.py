@@ -19,6 +19,7 @@ class Note(models.Model):
         default=StudyStatus.LEARNING,
     )
     is_public = models.BooleanField(default=False)
+    source = models.TextField(blank=True)
     # Where the note lives in the study hierarchy (Exam > Section > Topic > Note).
     # PROTECT stops a topic from being deleted while notes still use it.
     topic = models.ForeignKey(
@@ -45,3 +46,55 @@ class Note(models.Model):
         if self.topic is None:
             return f"Note {self.note_id}"
         return f"Note {self.note_id} in {self.topic}"
+
+
+# Track which public notes each user has bookmarked.
+class Bookmark(models.Model):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="bookmarks",
+    )
+    note = models.ForeignKey(
+        Note,
+        on_delete=models.CASCADE,
+        related_name="bookmarks",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "note"],
+                name="unique_user_note_bookmark",
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.user.username} bookmarked note {self.note.note_id}"
+
+
+# Track which contributors each user has marked as favorites.
+class FavoriteContributor(models.Model):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="favorite_contributors",
+    )
+    contributor = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="favorited_by",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "contributor"],
+                name="unique_user_favorite_contributor",
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.user.username} favorited {self.contributor.username}"

@@ -28,6 +28,8 @@ function NavBar(props) {
         <div>
           {pageButton('my-notes', 'My Notes')}
           {pageButton('public-notes', 'Public Notes')}
+          {pageButton('bookmarks', 'My Bookmarks')}
+          {pageButton('favorite-contributors', 'Favorite Contributors')}
         </div>
       );
     }

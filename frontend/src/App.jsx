@@ -4,6 +4,8 @@ import SignUp from './components/SignUp.jsx';
 import Login from './components/Login.jsx';
 import Notes from './pages/Notes.jsx';
 import PublicNotes from './pages/PublicNotes.jsx';
+import Bookmarks from './pages/Bookmarks.jsx';
+import FavoriteContributors from './pages/FavoriteContributors.jsx';
 import './App.css';
 
 function loadSavedUser() {
@@ -64,6 +66,10 @@ function App() {
   let currentPage = <Notes user={user} />;
   if (page === 'public-notes') {
     currentPage = <PublicNotes user={user} />;
+  } else if (page === 'bookmarks') {
+    currentPage = <Bookmarks user={user} />;
+  } else if (page === 'favorite-contributors') {
+    currentPage = <FavoriteContributors user={user} />;
   }
 
   return (
