@@ -4,6 +4,7 @@ from rest_framework import status
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from preparenote.quickstart.models import Note
+from preparenote.quickstart.views import noteToDict
 from preparenote.reports.models import Report
 
 
@@ -72,7 +73,7 @@ def listReports(request, note_id):
     # Get the note
     note = Note.objects.filter(note_id=note_id).first()
     if note is None:
-            return Response({"success": False, "error": "Note not found"}, status=status.HTTP_404_NOT_FOUND)
+        return Response({"success": False, "error": "Note not found"}, status=status.HTTP_404_NOT_FOUND)
 
     # Get the reports associated with the note
     reports = Report.objects.filter(note_id=note_id)
@@ -81,6 +82,24 @@ def listReports(request, note_id):
         reportDicts.append(reportToDict(report))
 
     return Response({"success": True, "reports": reportDicts})
+
+@api_view(['GET'])
+def listReportQueue(request):
+    # Ensure authorized
+    if not request.user.is_staff:
+        return Response({"success": False, "error": "Only moderators can access outstanding reports"}, status=status.HTTP_401_UNAUTHORIZED)
+
+    # Get all existing reports in order of most recent
+    reports = Report.objects.order_by("-created_at")
+
+    # Get output
+    response = []
+    for report in reports:
+        reportDict = reportToDict(report)
+        reportDict['note'] = noteToDict(report.note)
+        response.append(reportDict)
+
+    return Response({"success": True, "reports": response})
 
 @api_view(['POST'])
 def removeReport(request, note_id, reporter_id=None):

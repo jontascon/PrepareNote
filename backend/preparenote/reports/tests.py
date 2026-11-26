@@ -1,6 +1,7 @@
 from django.contrib.auth import get_user_model
 from rest_framework import status
 from rest_framework.test import APITestCase
+import time
 
 from preparenote.quickstart.models import Note
 
@@ -167,6 +168,9 @@ class ReviewAndRemoveReports(APITestCase):
     def listReports(self, note_id):
         return self.client.get(f"/notes/{note_id}/reports/")
 
+    def listReportQueue(self):
+        return self.client.get(f"/reports/")
+
     def removeReport(self, note_id, reporter_id=None):
         if reporter_id:
             return self.client.post(f"/notes/{note_id}/removeReport/{reporter_id}")
@@ -283,3 +287,44 @@ class ReviewAndRemoveReports(APITestCase):
 
         # Ensure not removed
         self.assertIsNotNone(Report.objects.filter(note_id=self.public_note.note_id, reporter=self.public_user).first())
+
+    def test_list_report_success(self):
+        self.client.force_authenticate(user=self.mod_user)
+
+        # Create reports
+        report1 = Report.objects.create(reporter=self.public_user, note=self.public_note)
+        time.sleep(0.1) # Sleep so that the created_at is different
+        report2 = Report.objects.create(reporter=self.public_user2, note=self.public_note)
+
+        # Get report queue
+        response = self.listReportQueue()
+
+        self.assertTrue(response.data["success"])
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data["reports"]), 2)
+        self.assertEqual(response.data["reports"][0]["report_id"], report2.id)
+        self.assertEqual(response.data["reports"][1]["report_id"], report1.id)
+
+    def test_list_report_unauthorized(self):
+        self.client.force_authenticate(user=self.public_user)
+
+        # Create reports
+        report1 = Report.objects.create(reporter=self.public_user, note=self.public_note)
+        report2 = Report.objects.create(reporter=self.public_user2, note=self.public_note)
+
+        # Get report queue
+        response = self.listReportQueue()
+
+        self.assertFalse(response.data["success"])
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+        self.assertFalse("reports" in response.data.keys())
+
+    def test_list_report_empty(self):
+        self.client.force_authenticate(user=self.mod_user)
+
+        # Get report queue
+        response = self.listReportQueue()
+
+        self.assertTrue(response.data["success"])
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data["reports"]), 0)

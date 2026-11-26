@@ -39,5 +39,6 @@ urlpatterns = [
     path("notes/<int:note_id>/removeReport/<int:reporter_id>", report_views.removeReport, name="removeReport"),
     path("notes/<int:note_id>/removeReport/", report_views.removeReport, name="removeReport"),
     path("notes/<int:note_id>/removeReportedNote/", report_views.removeReportedNote, name="removeReportedNote"),
+    path("reports/", report_views.listReportQueue, name="listReportQueue"),
     path("exams/", exam_views.exams, name="exams")
 ]
