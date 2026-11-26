@@ -1,6 +1,7 @@
 from django.contrib.auth import get_user_model
 from rest_framework import status
 from rest_framework.test import APITestCase
+import time
 
 from preparenote.quickstart.models import Note
 
@@ -292,6 +293,7 @@ class ReviewAndRemoveReports(APITestCase):
 
         # Create reports
         report1 = Report.objects.create(reporter=self.public_user, note=self.public_note)
+        time.sleep(0.1) # Sleep so that the created_at is different
         report2 = Report.objects.create(reporter=self.public_user2, note=self.public_note)
 
         # Get report queue
@@ -300,8 +302,8 @@ class ReviewAndRemoveReports(APITestCase):
         self.assertTrue(response.data["success"])
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data["reports"]), 2)
-        self.assertEqual(response.data["reports"][0]["report_id"], report1.id)
-        self.assertEqual(response.data["reports"][1]["report_id"], report2.id)
+        self.assertEqual(response.data["reports"][0]["report_id"], report2.id)
+        self.assertEqual(response.data["reports"][1]["report_id"], report1.id)
 
     def test_list_report_unauthorized(self):
         self.client.force_authenticate(user=self.public_user)
