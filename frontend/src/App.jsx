@@ -8,17 +8,55 @@ import Bookmarks from './pages/Bookmarks.jsx';
 import FavoriteContributors from './pages/FavoriteContributors.jsx';
 import './App.css';
 
+function cleanUser(user) {
+  if (user === null || typeof user !== 'object') {
+    return null;
+  }
+  if (typeof user.token !== 'string' || typeof user.username !== 'string') {
+    return null;
+  }
+
+  const id = Number(user.id);
+  const username = String(user.username);
+  const email = String(user.email);
+  const token = String(user.token);
+
+  if (!Number.isInteger(id) || id < 1) {
+    return null;
+  }
+  if (!/^[\w.@+-]{1,150}$/.test(username)) {
+    return null;
+  }
+  if (!/^[A-Za-z0-9]{1,64}$/.test(token)) {
+    return null;
+  }
+
+  let cleanEmail = '';
+  if (email.length <= 254 && /^[^\s<>"']*$/.test(email)) {
+    cleanEmail = email;
+  }
+
+  return {
+    id: id,
+    username: username,
+    email: cleanEmail,
+    isModerator: user.isModerator === true,
+    token: token,
+  };
+}
+
 function loadSavedUser() {
   const savedUser = localStorage.getItem('user');
   if (savedUser === null) {
     return null;
   }
 
-  const user = JSON.parse(savedUser);
-  if (user.token === undefined) {
+  try {
+    return cleanUser(JSON.parse(savedUser));
+  } catch (error) {
+    console.log(error);
     return null;
   }
-  return user;
 }
 
 function App() {
@@ -26,8 +64,13 @@ function App() {
   const [page, setPage] = useState('my-notes');
 
   function handleLogin(loggedInUser) {
-    localStorage.setItem('user', JSON.stringify(loggedInUser));
-    setUser(loggedInUser);
+    const safeUser = cleanUser(loggedInUser);
+    if (safeUser === null) {
+      return;
+    }
+
+    localStorage.setItem('user', JSON.stringify(safeUser));
+    setUser(safeUser);
     setPage('my-notes');
   }
 
