@@ -185,7 +185,7 @@ class NoteTests(APITestCase):
         self.client.force_authenticate(user=self.user)
 
     def test_create_note(self):
-        # PrpNt-TCID-10
+        # PrpNt-TCID-10, PrpNt-TCID-25
         response = self.client.post("/notes/", {
             "title": "IP Addresses",
             "content": "IPv4 uses 32-bit addresses.",
@@ -198,8 +198,10 @@ class NoteTests(APITestCase):
                 user=self.user,
                 title="IP Addresses",
                 content="IPv4 uses 32-bit addresses.",
+                source="Lecture",
             ).exists()
         )
+        self.assertEqual(response.data["note"]["source"], "Lecture")
 
     def test_reject_note_with_missing_required_fields(self):
         # PrpNt-TCID-14
@@ -219,7 +221,7 @@ class NoteTests(APITestCase):
         self.assertEqual(Note.objects.count(), 0)
 
     def test_retrieve_notes(self):
-        # PrpNt-TCID-11
+        # PrpNt-TCID-11, PrpNt-TCID-25
         note = Note.objects.create(
             user=self.user,
             title="IP Addresses",
@@ -240,7 +242,7 @@ class NoteTests(APITestCase):
         self.assertEqual(response.data["notes"][0]["source"], "Lecture")
 
     def test_update_note(self):
-        # PrpNt-TCID-12
+        # PrpNt-TCID-12, PrpNt-TCID-25
         note = Note.objects.create(
             user=self.user,
             title="IP Addresses",
@@ -268,6 +270,76 @@ class NoteTests(APITestCase):
             response.data["note"]["content"],
             "IPv6 uses 128-bit addresses.",
         )
+        self.assertEqual(response.data["note"]["source"], "")
+
+    def test_add_source_to_existing_note(self):
+        # PrpNt-TCID-25
+        note = Note.objects.create(
+            user=self.user,
+            title="IP Addresses",
+            content="IPv4 uses 32-bit addresses.",
+        )
+
+        response = self.client.put(f"/notes/{note.note_id}/", {
+            "title": note.title,
+            "content": note.content,
+            "source": "Networking textbook",
+        })
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        note.refresh_from_db()
+        self.assertEqual(note.source, "Networking textbook")
+        self.assertEqual(response.data["note"]["source"], "Networking textbook")
+
+    def test_replace_existing_source(self):
+        # PrpNt-TCID-25
+        note = Note.objects.create(
+            user=self.user,
+            title="IP Addresses",
+            content="IPv4 uses 32-bit addresses.",
+            source="Lecture",
+        )
+
+        response = self.client.put(f"/notes/{note.note_id}/", {
+            "title": note.title,
+            "content": note.content,
+            "source": "Networking textbook",
+        })
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        note.refresh_from_db()
+        self.assertEqual(note.source, "Networking textbook")
+        self.assertEqual(response.data["note"]["source"], "Networking textbook")
+
+    def test_preserve_source_when_omitted_from_update(self):
+        # PrpNt-TCID-25
+        note = Note.objects.create(
+            user=self.user,
+            title="IP Addresses",
+            content="IPv4 uses 32-bit addresses.",
+            source="Lecture",
+        )
+
+        response = self.client.put(f"/notes/{note.note_id}/", {
+            "title": note.title,
+            "content": "Updated networking information.",
+        })
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        note.refresh_from_db()
+        self.assertEqual(note.source, "Lecture")
+        self.assertEqual(response.data["note"]["source"], "Lecture")
+
+    def test_create_note_without_source(self):
+        # PrpNt-TCID-25
+        response = self.client.post("/notes/", {
+            "title": "IP Addresses",
+            "content": "IPv4 uses 32-bit addresses.",
+        })
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        note = Note.objects.get(user=self.user, title="IP Addresses")
+        self.assertEqual(note.source, "")
         self.assertEqual(response.data["note"]["source"], "")
 
     def test_delete_note(self):
